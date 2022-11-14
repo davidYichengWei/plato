@@ -14,6 +14,8 @@ from plato.samplers import all_inclusive
 from plato.servers import base
 from plato.trainers import registry as trainers_registry
 from plato.utils import csv_processor, fonts
+import crypten
+import torch
 
 
 class Server(base.Server):
@@ -137,13 +139,25 @@ class Server(base.Server):
             for name, delta in deltas_received[0].items()
         }
 
+        # Convert avg_update to cryptensor
+        for key in avg_update.keys():
+            avg_update[key] = crypten.cryptensor(avg_update[key])
+
         for i, update in enumerate(deltas_received):
             report = updates[i].report
             num_samples = report.num_samples
 
             for name, delta in update.items():
+                print("Print delta")
+                weighted_delta = delta * (num_samples / self.total_samples)
+                print(weighted_delta)
+                print("Print current avg_update")
+                print(avg_update[name])
+                # print("encrypted version")
+                # enc_avg = crypten.cryptensor(avg_update[name])
+                # print(enc_avg)
                 # Use weighted average by the number of samples
-                avg_update[name] += delta * (num_samples / self.total_samples)
+                avg_update[name] += weighted_delta
 
             # Yield to other tasks in the server
             await asyncio.sleep(0)
@@ -156,6 +170,21 @@ class Server(base.Server):
 
         weights_received = self.weights_received(weights_received)
         self.callback_handler.call_event("on_weights_received", self, weights_received)
+
+        print("Checking weights_received")
+        for weights in weights_received:
+            print("----------")
+            print(weights)
+
+        crypten.init()
+
+        # x = torch.tensor([1.0, 2.0, 3.0])
+        # x1 = torch.tensor([1.0, 2.0, 3.0])
+
+        # x_enc = crypten.cryptensor(x) # encrypt
+        # y = crypten.cryptensor(x1) + x_enc
+        # print(y)
+        # print(y.get_plain_text())
 
         # Extract the current model weights as the baseline
         baseline_weights = self.algorithm.extract_weights()
@@ -174,17 +203,33 @@ class Server(base.Server):
             # Loads the new model weights
             self.algorithm.load_weights(updated_weights)
         else:
+            print("Using delta to perform aggregation")
             # Computes the weight deltas by comparing the weights received with
             # the current global model weights
             deltas_received = self.algorithm.compute_weight_deltas(
                 baseline_weights, weights_received
             )
+            # print(deltas_received)
+            print("deltas printed")
+            # print(type(deltas_received))
+            # exit(0)
             # Runs a framework-agnostic server aggregation algorithm, such as
             # the federated averaging algorithm
             logging.info("[Server #%d] Aggregating model weight deltas.", os.getpid())
             deltas = await self.aggregate_deltas(self.updates, deltas_received)
+            print("aggregate_deltas completed")
             # Updates the existing model weights from the provided deltas
             updated_weights = self.algorithm.update_weights(deltas)
+            # print(updated_weights)
+            print("update_weights completed")
+
+            # Decrypt aggregated weights
+            for key in updated_weights:
+                updated_weights[key] = updated_weights[key].get_plain_text()
+
+            # print(updated_weights)
+            print("Plaintext updated weights")
+
             # Loads the new model weights
             self.algorithm.load_weights(updated_weights)
 

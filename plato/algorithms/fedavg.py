@@ -4,6 +4,7 @@ The federated averaging algorithm for PyTorch.
 from collections import OrderedDict
 
 from plato.algorithms import base
+import crypten
 
 
 class Algorithm(base.Algorithm):
@@ -28,6 +29,8 @@ class Algorithm(base.Algorithm):
     def update_weights(self, deltas):
         """Updates the existing model weights from the provided deltas."""
         baseline_weights = self.extract_weights()
+        for key in baseline_weights.keys():
+            baseline_weights[key] = crypten.cryptensor(baseline_weights[key])
 
         updated_weights = OrderedDict()
         for name, weight in baseline_weights.items():
