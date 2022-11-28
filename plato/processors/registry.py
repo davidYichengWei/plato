@@ -38,6 +38,7 @@ if not (
         send_mask,
         structured_pruning,
         unstructured_pruning,
+        mpc_model_encrypt
     )
 
     registered_processors = {
@@ -63,6 +64,7 @@ if not (
         "send_mask": send_mask.Processor,
         "structured_pruning": structured_pruning.Processor,
         "unstructured_pruning": unstructured_pruning.Processor,
+        "mpc_model_encrypt": mpc_model_encrypt.Processor
     }
 
 

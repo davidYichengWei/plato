@@ -14,6 +14,7 @@ from plato.processors import registry as processor_registry
 from plato.samplers import registry as samplers_registry
 from plato.trainers import registry as trainers_registry
 from plato.utils import fonts
+import pickle
 
 
 class Client(base.Client):
@@ -174,6 +175,18 @@ class Client(base.Client):
             comm_time=comm_time,
             update_response=False,
         )
+
+        # Save num_samples info in round_info
+        print(f"Client {self.client_id} has {self.sampler.num_samples()} samples")
+        round_info_filename = "mpc_data/round_info"
+
+        with open(round_info_filename, "rb") as round_info_file:
+            round_info = pickle.load(round_info_file)
+
+        round_info['num_samples'] = self.sampler.num_samples()
+
+        with open(round_info_filename, "wb") as round_info_file:
+            pickle.dump(round_info, round_info_file)
 
         self._report = self.customize_report(report)
 

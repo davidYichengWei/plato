@@ -659,8 +659,23 @@ class Server:
         # Select clients randomly
         selected_clients = random.sample(clients_pool, clients_count)
 
+        round_info = {
+            "round_number": self.current_round,
+            "selected_clients": selected_clients
+        }
+
+        for client in selected_clients:
+            round_info[f"client_{client}_data"] = None
+
+        # Store selected clients info in a file
+        round_info_filename = "mpc_data/round_info"
+
+        with open(round_info_filename, "wb") as round_info_file:
+            pickle.dump(round_info, round_info_file)
+
         self.prng_state = random.getstate()
         logging.info("[%s] Selected clients: %s", self, selected_clients)
+        logging.info("[%s] Stored information for the current round in file mpc_data/round_info", self)
         return selected_clients
 
     async def _periodic(self, periodic_interval):
