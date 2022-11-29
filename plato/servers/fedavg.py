@@ -288,9 +288,11 @@ class Server(base.Server):
         with open(round_info_filename, "rb") as round_info_file:
             round_info = pickle.load(round_info_file)
 
+        # Combine the client's weights share with weights shares sent from other clients
         for i, client in enumerate(round_info['selected_clients']):
-            weights_received[i] = round_info[f"client_{client}_data"]
-
+            # weights_received[i] = round_info[f"client_{client}_data"]
+            for key in weights_received[i].keys():
+                weights_received[i][key] += round_info[f"client_{client}_data"][key]
 
         return weights_received
 

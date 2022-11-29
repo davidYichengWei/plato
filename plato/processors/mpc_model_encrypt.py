@@ -19,36 +19,31 @@ class Processor(model.Processor):
         with open(round_info_filename, "rb") as round_info_file:
             round_info = pickle.load(round_info_file)
 
-        # print("Information for this round")
-        # print(round_info)
-
         num_clients = len(round_info['selected_clients'])
 
-        data_copy = data
-
         
-        # multiply by num_samples used to train the client
         # Split weights into n shares
             # Split evenly for now
-        for key in data_copy.keys():
-            data_copy[key] *= round_info['num_samples']
-            data_copy[key] /= num_clients
+        for key in data.keys():
+            # multiply by num_samples used to train the client
+            data[key] *= round_info['current_client_info']['num_samples']
+            data[key] /= num_clients
 
         # Store secret shares in round_info
-        for client in round_info['selected_clients']:
-            if round_info[f"client_{client}_data"] == None:
-                round_info[f"client_{client}_data"] = data_copy
-            else:
-                for key in data_copy.keys():
-                    round_info[f"client_{client}_data"][key] += data_copy[key]
+        for client_id in round_info['selected_clients']:
+            # Skip the client itself
+            if client_id == round_info['current_client_info']['client_id']:
+                continue
 
-            # round_info[f"client_{client}_data"].append(data_copy)
+            if round_info[f"client_{client_id}_data"] == None:
+                round_info[f"client_{client_id}_data"] = data
+            else:
+                for key in data.keys():
+                    round_info[f"client_{client_id}_data"][key] += data[key]
 
 
         print("Print round info after filling client data")
         print(round_info.keys())
-        # print(round_info['client_3_data']['conv1.bias'])
-        # print(round_info['client_2_data']['conv1.bias'])
 
         # Dump round_info into file
         with open(round_info_filename, "wb") as round_info_file:

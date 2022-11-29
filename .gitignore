@@ -211,3 +211,5 @@ Training
 Blog
 About
 plato/.gitignore at main · TL-System/plato
+# Multiparty computation
+mpc_data/

@@ -6,14 +6,10 @@ clients:
     total_clients: 10
 
     # The number of clients selected in each round
-    per_round: 1
+    per_round: 2
 
     # Should the clients compute test accuracy locally?
     do_test: false
-
-    # Processors for inboud data payloads
-    # inbound_processors:
-    #     - mpc_model_decrypt
 
     # Processors for outbound data payloads
     outbound_processors:

@@ -183,7 +183,10 @@ class Client(base.Client):
         with open(round_info_filename, "rb") as round_info_file:
             round_info = pickle.load(round_info_file)
 
-        round_info['num_samples'] = self.sampler.num_samples()
+        round_info['current_client_info'] = {
+            "client_id": self.client_id,
+            "num_samples": self.sampler.num_samples()
+        }
 
         with open(round_info_filename, "wb") as round_info_file:
             pickle.dump(round_info, round_info_file)
