@@ -20,10 +20,6 @@ class Processor(model.Processor):
             tensors = [tensor]
             return tensors
 
-        # get shape of the tensor
-        # tensors = [torch.rand(tensor.size()) for i in range(N - 1)]
-        # tensors.append(tensor - sum(tensors))
-
         # First split evenly
         tensors = [tensor / N for i in range(N)]
 
@@ -58,16 +54,6 @@ class Processor(model.Processor):
 
             # Split tensor randomly into num_clients shares
             tensor_shares = self.splitTensor(data[key], num_clients, 5)
-
-            # Check if split is correct
-            # if torch.equal(data[key], sum(tensor_shares)):
-            #     print("Split is correct")
-            # else:
-            #     print("Split is incorrect")
-            #     print("Original tensor")
-            #     print(data[key])
-            #     print("Sum of shares")
-            #     print(sum(tensor_shares))
 
             # Store tensor_shares into data_shares for the particular key
             for i in range(num_clients):

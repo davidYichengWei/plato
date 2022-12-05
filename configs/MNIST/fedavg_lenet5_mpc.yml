@@ -16,7 +16,7 @@ clients:
         - mpc_model_encrypt
 
 server:
-    type: fedavg
+    type: fedavg_mpc
     address: 127.0.0.1
     port: 8001
     random_seed: 1
