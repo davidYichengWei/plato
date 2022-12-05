@@ -33,8 +33,7 @@ def get(model=None, algorithm=None, trainer=None):
         server_type = Config().server.type
     else:
         server_type = Config().algorithm.type
-    print("registered servers are")
-    print(registered_servers)
+        
     if server_type in registered_servers:
         logging.info("Server: %s", server_type)
         return registered_servers[server_type](

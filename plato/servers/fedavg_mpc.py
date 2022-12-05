@@ -14,6 +14,7 @@ from plato.samplers import all_inclusive
 from plato.servers import base
 from plato.trainers import registry as trainers_registry
 from plato.utils import csv_processor, fonts
+import pickle
 
 
 class Server(base.Server):
@@ -150,6 +151,27 @@ class Server(base.Server):
 
         return avg_update
 
+    async def aggregate_weights(self, updates, baseline_weights, weights_received):
+        """Process the client reports by aggregating their weights."""
+        self.total_samples = sum(update.report.num_samples for update in updates)
+
+        aggregated_weights = weights_received[0] # initialize with the first client's weights
+
+        # Aggregate weights
+        for i, client_weights in enumerate(weights_received):
+            if i == 0:
+                continue
+
+            for key in aggregated_weights.keys():
+                aggregated_weights[key] += client_weights[key]
+
+        # Divide by total number of samples
+        for key in aggregated_weights.keys():
+            aggregated_weights[key] /= self.total_samples
+
+        return aggregated_weights
+            
+
     async def _process_reports(self):
         """Process the client reports by aggregating their weights."""
         weights_received = [update.payload for update in self.updates]
@@ -256,6 +278,21 @@ class Server(base.Server):
         """
         Method called after the updated weights have been received.
         """
+        print("Reading weights from round_info file")
+        round_info_filename = "mpc_data/round_info"
+
+        with open(round_info_filename, "rb") as round_info_file:
+            round_info = pickle.load(round_info_file)
+
+        # If there is only 1 client per round, skip the following step
+        if len(round_info['selected_clients']) == 1:
+            return weights_received
+
+        # Combine the client's weights share with weights shares sent from other clients
+        for i, client in enumerate(round_info['selected_clients']):
+            for key in weights_received[i].keys():
+                weights_received[i][key] += round_info[f"client_{client}_data"][key]
+
         return weights_received
 
     def weights_aggregated(self, updates):
