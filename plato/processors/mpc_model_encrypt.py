@@ -42,7 +42,12 @@ class Processor(model.Processor):
 
         num_clients = len(round_info['selected_clients'])
 
-        
+        # Store the client's weights before encryption in a file
+        weights_filename = "mpc_data/raw_weights_round%s_client%s" % (round_info['round_number'], round_info['current_client_info']['client_id'])
+        f = open(weights_filename, "w")
+        f.write(str(data))
+        f.close()
+
         # Split weights randomly into n shares
         # Initialize data_shares to the shape of data
         data_shares = [data for i in range(num_clients)]

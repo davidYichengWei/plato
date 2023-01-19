@@ -293,6 +293,13 @@ class Server(base.Server):
             for key in weights_received[i].keys():
                 weights_received[i][key] += round_info[f"client_{client}_data"][key]
 
+        # Store the combined weights in files for testing
+        for i, client in enumerate(round_info['selected_clients']):
+            encrypted_weights_filename = "mpc_data/encrypted_weights_round%s_client%s" % (round_info['round_number'], client)
+            f = open(encrypted_weights_filename, "w")
+            f.write(str(weights_received[i]))
+            f.close()
+
         return weights_received
 
     def weights_aggregated(self, updates):
