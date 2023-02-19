@@ -15,6 +15,7 @@ from plato.servers import base
 from plato.trainers import registry as trainers_registry
 from plato.utils import csv_processor, fonts
 import pickle
+from plato.utils import s3
 
 
 class Server(base.Server):
@@ -43,6 +44,8 @@ class Server(base.Server):
 
         self.total_clients = Config().clients.total_clients
         self.clients_per_round = Config().clients.per_round
+
+        self.s3_client = None
 
         logging.info(
             "[Server #%d] Started training on %d clients with %d per round.",
@@ -111,6 +114,9 @@ class Server(base.Server):
             csv_processor.initialize_csv(
                 accuracy_csv_file, accuracy_headers, Config().params["result_path"]
             )
+
+        if hasattr(Config().server, "s3_endpoint_url"):
+            self.s3_client = s3.S3()
 
     def init_trainer(self) -> None:
         """Setting up the global model, trainer, and algorithm."""
@@ -278,11 +284,16 @@ class Server(base.Server):
         """
         Method called after the updated weights have been received.
         """
-        print("Reading weights from round_info file")
-        round_info_filename = "mpc_data/round_info"
-
-        with open(round_info_filename, "rb") as round_info_file:
-            round_info = pickle.load(round_info_file)
+        # Load round_info object
+        if self.s3_client is not None:
+            s3_key = "round_info"
+            logging.debug("Retrieving round_info from S3")
+            round_info = self.s3_client.receive_from_s3(s3_key)
+        else:
+            round_info_filename = "mpc_data/round_info"
+            logging.debug("Retrieving round_info from file")
+            with open(round_info_filename, "rb") as round_info_file:
+                round_info = pickle.load(round_info_file)
 
         # If there is only 1 client per round, skip the following step
         if len(round_info['selected_clients']) == 1:

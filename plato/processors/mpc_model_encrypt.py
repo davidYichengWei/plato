@@ -4,6 +4,9 @@ from plato.processors import model
 import pickle
 import torch
 import random
+from plato.config import Config
+from plato.utils import s3
+import logging
 
 class Processor(model.Processor):
     """
@@ -13,6 +16,7 @@ class Processor(model.Processor):
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self.client_share_index = 0
+        self.s3_client = None
 
     # Randomly split a tensor into N shares
     def splitTensor(self, tensor, N, random_range):
@@ -34,15 +38,20 @@ class Processor(model.Processor):
         return tensors
 
     def process(self, data: Any) -> Any:
-        # Get a list of client ids selected for this round of training
-        round_info_filename = "mpc_data/round_info"
-
-        with open(round_info_filename, "rb") as round_info_file:
-            round_info = pickle.load(round_info_file)
+        # Load round_info object
+        if hasattr(Config().server, "s3_endpoint_url"):
+            self.s3_client = s3.S3()
+            s3_key = "round_info"
+            logging.debug("Retrieving round_info from S3")
+            round_info = self.s3_client.receive_from_s3(s3_key)
+        else:
+            round_info_filename = "mpc_data/round_info"
+            with open(round_info_filename, "rb") as round_info_file:
+                round_info = pickle.load(round_info_file)
 
         num_clients = len(round_info['selected_clients'])
 
-        # Store the client's weights before encryption in a file
+        # Store the client's weights before encryption in a file for testing
         weights_filename = "mpc_data/raw_weights_round%s_client%s" % (round_info['round_number'], round_info['current_client_info']['client_id'])
         f = open(weights_filename, "w")
         f.write(str(data))
@@ -78,12 +87,14 @@ class Processor(model.Processor):
                 for key in data.keys():
                     round_info[f"client_{client_id}_data"][key] += data_shares[i][key]
 
-
-        print("Print round info after filling client data")
+        print("Print round_info keys after filling client data")
         print(round_info.keys())
 
-        # Dump round_info into file
-        with open(round_info_filename, "wb") as round_info_file:
-            pickle.dump(round_info, round_info_file)
+        # Store round_info object
+        if hasattr(Config().server, "s3_endpoint_url"):
+            self.s3_client.put_to_s3(s3_key, round_info)
+        else:
+            with open(round_info_filename, "wb") as round_info_file:
+                pickle.dump(round_info, round_info_file)
 
         return data_shares[self.client_share_index]

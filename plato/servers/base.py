@@ -667,15 +667,20 @@ class Server:
         for client in selected_clients:
             round_info[f"client_{client}_data"] = None
 
-        # Store selected clients info in a file
-        round_info_filename = "mpc_data/round_info"
+        # Store selected clients info into a file or S3 bucket
+        if self.s3_client is not None:
+            s3_key = "round_info"
+            self.s3_client.put_to_s3(s3_key, round_info)
+            logging.debug("[%s] Stored information for the current round in an S3 bucket", self)
+        else:
+            round_info_filename = "mpc_data/round_info"
+            with open(round_info_filename, "wb") as round_info_file:
+                pickle.dump(round_info, round_info_file)
+            logging.debug("[%s] Stored information for the current round in file mpc_data/round_info", self)
 
-        with open(round_info_filename, "wb") as round_info_file:
-            pickle.dump(round_info, round_info_file)
 
         self.prng_state = random.getstate()
         logging.info("[%s] Selected clients: %s", self, selected_clients)
-        logging.info("[%s] Stored information for the current round in file mpc_data/round_info", self)
         return selected_clients
 
     async def _periodic(self, periodic_interval):
