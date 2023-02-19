@@ -665,7 +665,10 @@ class Server:
         }
 
         for client in selected_clients:
-            round_info[f"client_{client}_data"] = None
+            round_info[f"client_{client}_info"] = {
+                "num_samples": None,
+                "data": None
+            }
 
         # Store selected clients info into a file or S3 bucket
         if self.s3_client is not None:

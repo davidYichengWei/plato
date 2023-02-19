@@ -17,6 +17,7 @@ class Processor(model.Processor):
         super().__init__(**kwargs)
         self.client_share_index = 0
         self.s3_client = None
+        self.client_id = kwargs["client_id"]
 
     # Randomly split a tensor into N shares
     def splitTensor(self, tensor, N, random_range):
@@ -52,7 +53,7 @@ class Processor(model.Processor):
         num_clients = len(round_info['selected_clients'])
 
         # Store the client's weights before encryption in a file for testing
-        weights_filename = "mpc_data/raw_weights_round%s_client%s" % (round_info['round_number'], round_info['current_client_info']['client_id'])
+        weights_filename = "mpc_data/raw_weights_round%s_client%s" % (round_info['round_number'], self.client_id)
         f = open(weights_filename, "w")
         f.write(str(data))
         f.close()
@@ -64,7 +65,7 @@ class Processor(model.Processor):
         # Iterate over the keys of data to split
         for key in data.keys():
             # multiply by num_samples used to train the client
-            data[key] *= round_info['current_client_info']['num_samples']
+            data[key] *= round_info[f"client_{self.client_id}_info"]['num_samples']
 
             # Split tensor randomly into num_clients shares
             tensor_shares = self.splitTensor(data[key], num_clients, 5)
@@ -77,15 +78,15 @@ class Processor(model.Processor):
         # Store secret shares in round_info
         for i, client_id in enumerate(round_info['selected_clients']):
             # Skip the client itself
-            if client_id == round_info['current_client_info']['client_id']:
+            if client_id == self.client_id:
                 self.client_share_index = i # keep track of the index to return the client's share in the end
                 continue
 
-            if round_info[f"client_{client_id}_data"] == None:
-                round_info[f"client_{client_id}_data"] = data_shares[i]
+            if round_info[f"client_{client_id}_info"]["data"] == None:
+                round_info[f"client_{client_id}_info"]["data"] = data_shares[i]
             else:
                 for key in data.keys():
-                    round_info[f"client_{client_id}_data"][key] += data_shares[i][key]
+                    round_info[f"client_{client_id}_info"]["data"][key] += data_shares[i][key]
 
         print("Print round_info keys after filling client data")
         print(round_info.keys())

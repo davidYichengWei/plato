@@ -302,7 +302,7 @@ class Server(base.Server):
         # Combine the client's weights share with weights shares sent from other clients
         for i, client in enumerate(round_info['selected_clients']):
             for key in weights_received[i].keys():
-                weights_received[i][key] += round_info[f"client_{client}_data"][key]
+                weights_received[i][key] += round_info[f"client_{client}_info"]["data"][key]
 
         # Store the combined weights in files for testing
         for i, client in enumerate(round_info['selected_clients']):

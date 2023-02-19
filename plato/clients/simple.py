@@ -195,10 +195,8 @@ class Client(base.Client):
             with open(round_info_filename, "rb") as round_info_file:
                 round_info = pickle.load(round_info_file)
 
-        round_info['current_client_info'] = {
-            "client_id": self.client_id,
-            "num_samples": self.sampler.num_samples()
-        }
+        round_info[f"client_{self.client_id}_info"]['num_samples'] = self.sampler.num_samples()
+        print(round_info[f"client_{self.client_id}_info"]['num_samples'])
 
         if self.s3_client is not None:
             logging.debug("Saving round_info with current_client_info to S3")
