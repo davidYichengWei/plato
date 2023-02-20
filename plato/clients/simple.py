@@ -79,7 +79,8 @@ class Client(base.Client):
         if hasattr(Config().server, "s3_endpoint_url"):
             self.s3_client = s3.S3()
             # Use Zookeeper for distributed locking
-            self.zk = KazooClient(hosts='localhost:2181')
+            self.zk = KazooClient(hosts = f'{Config().server.zk_address}:{Config().server.zk_port}')
+            
 
     def _load_data(self) -> None:
         """Generates data and loads them onto this client."""

@@ -44,7 +44,7 @@ class Processor(model.Processor):
     def process(self, data: Any) -> Any:
         # Load round_info object
         if hasattr(Config().server, "s3_endpoint_url"):
-            self.zk = KazooClient(hosts='localhost:2181')
+            self.zk = KazooClient(hosts = f'{Config().server.zk_address}:{Config().server.zk_port}')
             self.zk.start()
             lock = Lock(self.zk, '/my/lock/path')
             lock.acquire()

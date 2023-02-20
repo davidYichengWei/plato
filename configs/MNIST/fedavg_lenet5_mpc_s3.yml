@@ -29,6 +29,10 @@ server:
     s3_bucket: "fl-mpc"
     s3_endpoint_url: "https://s3.us-east-1.amazonaws.com"
 
+    # Zookeeper for distributed lock, need to start zookeeper at the following address and port before training
+    zk_address: 127.0.0.1
+    zk_port: 2181
+
 
 data: !include mnist_iid.yml
 
