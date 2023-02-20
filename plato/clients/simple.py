@@ -16,6 +16,8 @@ from plato.trainers import registry as trainers_registry
 from plato.utils import fonts
 import pickle
 from plato.utils import s3
+from kazoo.client import KazooClient
+from kazoo.recipe.lock import Lock
 
 
 class Client(base.Client):
@@ -45,6 +47,7 @@ class Client(base.Client):
         self._report = None
 
         self.s3_client = None
+        self.zk = None
 
     def configure(self) -> None:
         """Prepares this client for training."""
@@ -75,6 +78,8 @@ class Client(base.Client):
 
         if hasattr(Config().server, "s3_endpoint_url"):
             self.s3_client = s3.S3()
+            # Use Zookeeper for distributed locking
+            self.zk = KazooClient(hosts='localhost:2181')
 
     def _load_data(self) -> None:
         """Generates data and loads them onto this client."""
@@ -183,28 +188,37 @@ class Client(base.Client):
         )
 
         # Save num_samples info in round_info
-        print(f"Client {self.client_id} has {self.sampler.num_samples()} samples")
+        try:
+            if self.s3_client is not None:
+                # Use Zookeeper for distributed locking
+                self.zk.start()
+                lock = Lock(self.zk, '/my/lock/path')
+                lock.acquire()
+                logging.info("[%s] Acquired Zookeeper lock", self)
 
-        if self.s3_client is not None:
-            s3_key = "round_info"
-            logging.debug("Retrieving round_info from S3")
-            round_info = self.s3_client.receive_from_s3(s3_key)
-        else:
-            round_info_filename = "mpc_data/round_info"
-            logging.debug("Retrieving round_info from file")
-            with open(round_info_filename, "rb") as round_info_file:
-                round_info = pickle.load(round_info_file)
+                s3_key = "round_info"
+                logging.debug("Retrieving round_info from S3")
+                round_info = self.s3_client.receive_from_s3(s3_key)
+            else:
+                round_info_filename = "mpc_data/round_info"
+                logging.debug("Retrieving round_info from file")
+                with open(round_info_filename, "rb") as round_info_file:
+                    round_info = pickle.load(round_info_file)
 
-        round_info[f"client_{self.client_id}_info"]['num_samples'] = self.sampler.num_samples()
-        print(round_info[f"client_{self.client_id}_info"]['num_samples'])
+            round_info[f"client_{self.client_id}_info"]['num_samples'] = self.sampler.num_samples()
 
-        if self.s3_client is not None:
-            logging.debug("Saving round_info with current_client_info to S3")
-            self.s3_client.put_to_s3(s3_key, round_info)
-        else:
-            logging.debug("Saving round_info with current_client_info to file")
-            with open(round_info_filename, "wb") as round_info_file:
-                pickle.dump(round_info, round_info_file)
+            if self.s3_client is not None:
+                logging.debug("Saving round_info with current_client_info to S3")
+                self.s3_client.put_to_s3(s3_key, round_info)
+            else:
+                logging.debug("Saving round_info with current_client_info to file")
+                with open(round_info_filename, "wb") as round_info_file:
+                    pickle.dump(round_info, round_info_file)
+        finally:
+            if self.s3_client is not None:
+                lock.release()
+                logging.info("[%s] Released Zookeeper lock", self)
+                self.zk.stop()
 
         self._report = self.customize_report(report)
 

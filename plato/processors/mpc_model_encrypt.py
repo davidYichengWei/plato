@@ -7,6 +7,8 @@ import random
 from plato.config import Config
 from plato.utils import s3
 import logging
+from kazoo.client import KazooClient
+from kazoo.recipe.lock import Lock
 
 class Processor(model.Processor):
     """
@@ -18,6 +20,7 @@ class Processor(model.Processor):
         self.client_share_index = 0
         self.s3_client = None
         self.client_id = kwargs["client_id"]
+        self.zk = None
 
     # Randomly split a tensor into N shares
     def splitTensor(self, tensor, N, random_range):
@@ -41,6 +44,12 @@ class Processor(model.Processor):
     def process(self, data: Any) -> Any:
         # Load round_info object
         if hasattr(Config().server, "s3_endpoint_url"):
+            self.zk = KazooClient(hosts='localhost:2181')
+            self.zk.start()
+            lock = Lock(self.zk, '/my/lock/path')
+            lock.acquire()
+            logging.info("[%s] Acquired Zookeeper lock", self)
+
             self.s3_client = s3.S3()
             s3_key = "round_info"
             logging.debug("Retrieving round_info from S3")
@@ -88,12 +97,15 @@ class Processor(model.Processor):
                 for key in data.keys():
                     round_info[f"client_{client_id}_info"]["data"][key] += data_shares[i][key]
 
-        print("Print round_info keys after filling client data")
-        print(round_info.keys())
+        logging.debug("Print round_info keys before filling client data")
+        logging.debug(round_info.keys())
 
         # Store round_info object
         if hasattr(Config().server, "s3_endpoint_url"):
             self.s3_client.put_to_s3(s3_key, round_info)
+            lock.release()
+            logging.info("[%s] Released Zookeeper lock", self)
+            self.zk.stop()
         else:
             with open(round_info_filename, "wb") as round_info_file:
                 pickle.dump(round_info, round_info_file)
