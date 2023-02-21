@@ -10,11 +10,13 @@ from plato.config import Config
 from plato.clients import (
     simple,
     mistnet,
+    mpc,
 )
 
 registered_clients = {
     "simple": simple.Client,
     "mistnet": mistnet.Client,
+    "mpc": mpc.Client,
 }
 
 

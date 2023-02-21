@@ -1,6 +1,6 @@
 clients:
     # Type
-    type: simple
+    type: mpc
 
     # The total number of clients
     total_clients: 10
