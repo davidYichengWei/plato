@@ -9,7 +9,7 @@ import logging
 
 from plato.config import Config
 
-from plato.servers import fedavg, fedavg_cs, mistnet, fedavg_gan, fedavg_mpc
+from plato.servers import fedavg, fedavg_cs, mistnet, fedavg_gan, fedavg_mpc, fedavg_mpc_shamir
 
 if hasattr(Config().server, "type") and Config().server.type == "fedavg_he":
     # FedAvg server with homomorphic encryption supports PyTorch only
@@ -24,6 +24,7 @@ else:
         "mistnet": mistnet.Server,
         "fedavg_gan": fedavg_gan.Server,
         "fedavg_mpc": fedavg_mpc.Server,
+        "fedavg_mpc_shamir": fedavg_mpc_shamir.Server,
     }
 
 
