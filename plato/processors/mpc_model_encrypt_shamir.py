@@ -10,6 +10,7 @@ from plato.utils import s3
 import logging
 from kazoo.client import KazooClient
 from kazoo.recipe.lock import Lock
+import copy
 
 class Processor(model.Processor):
     """
@@ -70,7 +71,7 @@ class Processor(model.Processor):
 
         # Split weights randomly into n shares
         # Initialize data_shares to the shape of data
-        data_shares = [data for i in range(num_clients)]
+        data_shares = [copy.deepcopy(data) for i in range(num_clients)]
 
         # Iterate over the keys of data to split
         for key in data.keys():
