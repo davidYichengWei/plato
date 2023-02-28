@@ -20,7 +20,7 @@ registered_clients = {
 }
 
 
-def get(model=None, datasource=None, algorithm=None, trainer=None):
+def get(model=None, datasource=None, algorithm=None, trainer=None, lock=None):
     """Get an instance of the server."""
     if hasattr(Config().clients, "type"):
         client_type = Config().clients.type
@@ -29,9 +29,14 @@ def get(model=None, datasource=None, algorithm=None, trainer=None):
 
     if client_type in registered_clients:
         logging.info("Client: %s", client_type)
-        registered_client = registered_clients[client_type](
-            model=model, datasource=datasource, algorithm=algorithm, trainer=trainer
-        )
+        if client_type == "mpc":
+            registered_client = registered_clients[client_type](
+                model=model, datasource=datasource, algorithm=algorithm, trainer=trainer, lock=lock
+            )
+        else:
+            registered_client = registered_clients[client_type](
+                model=model, datasource=datasource, algorithm=algorithm, trainer=trainer
+            )
     else:
         raise ValueError(f"No such client: {client_type}")
 

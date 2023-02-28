@@ -116,8 +116,16 @@ class Server(base.Server):
                 accuracy_csv_file, accuracy_headers, Config().params["result_path"]
             )
 
+        if hasattr(Config().clients, "type") and Config().clients.type == "mpc":
+            if "mpc_data" not in os.listdir("./"):
+                os.mkdir("mpc_data")
+            # erase the file before we start training 
+            temp = open("./mpc_data/round_info", "wb")
+            temp.close()
+
         if hasattr(Config().server, "s3_endpoint_url"):
             self.s3_client = s3.S3()
+    
 
     def init_trainer(self) -> None:
         """Setting up the global model, trainer, and algorithm."""
@@ -291,7 +299,7 @@ class Server(base.Server):
             logging.debug("Retrieving round_info from S3")
             round_info = self.s3_client.receive_from_s3(s3_key)
         else:
-            round_info_filename = "mpc_data/round_info"
+            round_info_filename = "./mpc_data/round_info"
             logging.debug("Retrieving round_info from file")
             with open(round_info_filename, "rb") as round_info_file:
                 round_info = pickle.load(round_info_file)

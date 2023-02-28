@@ -18,13 +18,13 @@ import pickle
 from plato.utils import s3
 from kazoo.client import KazooClient
 from kazoo.recipe.lock import Lock
-
+import os
 
 class Client(base.Client):
     """A basic federated learning client who sends simple weight updates."""
 
     def __init__(
-        self, model=None, datasource=None, algorithm=None, trainer=None, callbacks=None
+        self, model=None, datasource=None, algorithm=None, trainer=None, callbacks=None, lock=None
     ):
         super().__init__(callbacks=callbacks)
         self.custom_model = model
@@ -48,6 +48,7 @@ class Client(base.Client):
 
         self.s3_client = None
         self.zk = None
+        self.lock = lock
 
     def configure(self) -> None:
         """Prepares this client for training."""
@@ -187,7 +188,7 @@ class Client(base.Client):
             comm_time=comm_time,
             update_response=False,
         )
-
+        
         # Save num_samples info in round_info
         try:
             if self.s3_client is not None:
@@ -201,8 +202,9 @@ class Client(base.Client):
                 logging.debug("Retrieving round_info from S3")
                 round_info = self.s3_client.receive_from_s3(s3_key)
             else:
-                round_info_filename = "mpc_data/round_info"
+                round_info_filename = "./mpc_data/round_info"
                 logging.debug("Retrieving round_info from file")
+                self.lock.acquire()
                 with open(round_info_filename, "rb") as round_info_file:
                     round_info = pickle.load(round_info_file)
 
@@ -215,6 +217,7 @@ class Client(base.Client):
                 logging.debug("Saving round_info with current_client_info to file")
                 with open(round_info_filename, "wb") as round_info_file:
                     pickle.dump(round_info, round_info_file)
+                self.lock.release()
         finally:
             if self.s3_client is not None:
                 lock.release()
