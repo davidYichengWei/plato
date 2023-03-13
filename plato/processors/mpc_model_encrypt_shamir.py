@@ -72,6 +72,8 @@ class Processor(model.Processor):
         # Split weights randomly into n shares
         # Initialize data_shares to the shape of data
         data_shares = [copy.deepcopy(data) for i in range(num_clients)]
+        # shape of tensor values for each key
+        data_shape = [dict() for i in range(num_clients)]
 
         # Iterate over the keys of data to split
         for key in data.keys():
@@ -83,15 +85,10 @@ class Processor(model.Processor):
 
             # Store tensor_shares into data_shares for the particular key
             for i in range(num_clients):
-                tmp_tensor = tensor_shares[i]
-                orig_size = list(tmp_tensor.size())
-                dimen_val = np.prod(orig_size)
-                t_1 = tmp_tensor.view(dimen_val)
-                t_2 = t_1.view(orig_size)
-                data_shares[i][key] = t_2
-
-
-        # Store secret shares in round_info
+                data_shares[i][key] = tensor_shares[i]
+                data_shape[i][key] = list(tensor_shares[i].size())
+ 
+        # Store secret shares and data shape into round_info
         for i, client_id in enumerate(round_info['selected_clients']):
             # Skip the client itself
             if client_id == self.client_id:
@@ -102,7 +99,7 @@ class Processor(model.Processor):
                 round_info[f"client_{client_id}_info"]["data"] = data_shares[i]
             else:
                 for key in data.keys():
-                    round_info[f"client_{client_id}_info"]["data"][key] += data_shares[i][key]
+                    round_info[f"client_{client_id}_info"]["data"][key] += data_shares[i][key] #what to do with addtion?
 
         logging.debug("Print round_info keys before filling client data")
         logging.debug(round_info.keys())
