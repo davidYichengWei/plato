@@ -421,7 +421,7 @@ class Server:
                 proc.start()
         # sleep is inserted to bypass this issue:
         # https://superfastpython.com/filenotfounderror-multiprocessing-python/
-        time.sleep(10)
+        time.sleep(5)
 
     async def _close_connections(self):
         """Closes all socket.io connections after training completes."""
