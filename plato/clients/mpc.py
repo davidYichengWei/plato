@@ -73,8 +73,9 @@ class Client(base.Client):
 
         # Pass inbound and outbound data payloads through processors for
         # additional data processing
+
         self.outbound_processor, self.inbound_processor = processor_registry.get(
-            "Client", client_id=self.client_id, trainer=self.trainer
+            "Client", client_id=self.client_id, trainer=self.trainer, file_lock=self.lock
         )
 
         if hasattr(Config().server, "s3_endpoint_url"):
@@ -207,6 +208,7 @@ class Client(base.Client):
                 self.lock.acquire()
                 with open(round_info_filename, "rb") as round_info_file:
                     round_info = pickle.load(round_info_file)
+                self.lock.release()
 
             round_info[f"client_{self.client_id}_info"]['num_samples'] = self.sampler.num_samples()
 
@@ -215,12 +217,14 @@ class Client(base.Client):
                 self.s3_client.put_to_s3(s3_key, round_info)
             else:
                 logging.debug("Saving round_info with current_client_info to file")
+                self.lock.acquire()
                 with open(round_info_filename, "wb") as round_info_file:
                     pickle.dump(round_info, round_info_file)
                 self.lock.release()
         finally:
             if self.s3_client is not None:
-                lock.release()
+                if lock.locked():
+                    lock.release()
                 logging.info("[%s] Released Zookeeper lock", self)
                 self.zk.stop()
 

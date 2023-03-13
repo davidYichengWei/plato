@@ -22,6 +22,7 @@ class Processor(model.Processor):
         self.s3_client = None
         self.client_id = kwargs["client_id"]
         self.zk = None
+        self.lock = kwargs["file_lock"]
 
     # Randomly split a tensor into N shares
     def splitTensor(self, tensor, N, random_range):
@@ -57,8 +58,12 @@ class Processor(model.Processor):
             round_info = self.s3_client.receive_from_s3(s3_key)
         else:
             round_info_filename = "mpc_data/round_info"
+            if self.lock != None:
+                self.lock.acquire()
             with open(round_info_filename, "rb") as round_info_file:
                 round_info = pickle.load(round_info_file)
+            if self.lock != None:
+                self.lock.release()
 
         num_clients = len(round_info['selected_clients'])
 
