@@ -61,7 +61,6 @@ class Processor(model.Processor):
             self.lock.acquire()
             with open(round_info_filename, "rb") as round_info_file:
                 round_info = pickle.load(round_info_file)
-            self.lock.release()
 
         num_clients = len(round_info['selected_clients'])
 
@@ -111,7 +110,6 @@ class Processor(model.Processor):
             logging.info("[%s] Released Zookeeper lock", self)
             self.zk.stop()
         else:
-            self.lock.acquire()
             with open(round_info_filename, "wb") as round_info_file:
                 pickle.dump(round_info, round_info_file)
             self.lock.release()

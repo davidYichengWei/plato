@@ -208,7 +208,6 @@ class Client(base.Client):
                 self.lock.acquire()
                 with open(round_info_filename, "rb") as round_info_file:
                     round_info = pickle.load(round_info_file)
-                self.lock.release()
 
             round_info[f"client_{self.client_id}_info"]['num_samples'] = self.sampler.num_samples()
 
@@ -217,7 +216,6 @@ class Client(base.Client):
                 self.s3_client.put_to_s3(s3_key, round_info)
             else:
                 logging.debug("Saving round_info with current_client_info to file")
-                self.lock.acquire()
                 with open(round_info_filename, "wb") as round_info_file:
                     pickle.dump(round_info, round_info_file)
                 self.lock.release()
