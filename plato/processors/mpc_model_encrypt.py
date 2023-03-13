@@ -111,7 +111,9 @@ class Processor(model.Processor):
             logging.info("[%s] Released Zookeeper lock", self)
             self.zk.stop()
         else:
+            self.lock.acquire()
             with open(round_info_filename, "wb") as round_info_file:
                 pickle.dump(round_info, round_info_file)
+            self.lock.release()
 
         return data_shares[self.client_share_index]
