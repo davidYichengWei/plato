@@ -4,13 +4,13 @@ from plato.processors import model
 import pickle
 import torch
 import random
-import numpy as np
 from plato.config import Config
 from plato.utils import s3
 import logging
 from kazoo.client import KazooClient
 from kazoo.recipe.lock import Lock
 import copy
+import math
 
 class Processor(model.Processor):
     """
@@ -25,24 +25,58 @@ class Processor(model.Processor):
         self.zk = None
         self.lock = kwargs["file_lock"]
 
-    # Randomly split a tensor into N shares
-    def splitTensor(self, tensor, N, random_range):
-        if N == 1:
-            tensors = [tensor]
-            return tensors
+    #y = poly[0] + x*poly[1] + x^2*poly[2]
+    def calculate_Y (self, x, poly): #np.array
+        y = 0
+        tmp = 1
 
-        # First split evenly
-        tensors = [tensor / N for i in range(N)]
+        for coeff in poly:
+            y = (y + coeff * tmp)
+            tmp = tmp * x
+        return y
 
-        # Generate a random number for each share
-        rand_nums = [random.randrange(random_range) for i in range(N - 1)]
-        rand_nums.append(0 - sum(rand_nums))
+    #Function to encode a given secret
+    #Generates a K-degree polynomial, and N points
+    def secret_sharing(self, S, N, K):
+        #S is the secret int
+        poly = torch.zeros(K)
+        poly[0] = S #the y-intercept
+        for i in range(1, K):
+            #poly[i] = randint(1, 997) 
+            poly[i] = 100 + i
+        points = torch.zeros([N, 2])
 
-        # Add the random numbers to secret shares
-        for i in range(N):
-            tensors[i] += rand_nums[i]
+        #Generate N points from the polynomial
+        for j in range(1, N+1):
+            points[j-1][0] = j #x value of point
+            points[j-1][1] = self.calculate_Y(j, poly) #y value of point
 
-        return tensors
+        return points
+
+    # Encrypt tensor using Shamir
+    def splitTensor(self, secret_data, N, K=None):
+        if K is None:
+            K = max(N-2, 1) #threshold chosen by the user
+        
+        orig_size = list(secret_data.size())
+        dimen_len = math.prod(orig_size) #product of the size array
+        arr_one_dimen = secret_data.view(dimen_len)
+
+        coords_size = [N, dimen_len, 2] #4 (num clients), 18 (num points), 2 (2-D point)
+        coords = torch.empty(coords_size)   
+
+        for i in range(dimen_len): #iterate through each weight value
+            points = self.secret_sharing(arr_one_dimen[i], N, K) #size [N, 2] tensor
+            for j in range( N):
+                coords[j][i] = points[j] #coordinates[j] is the data points sending to client j
+
+        encrypted_size = orig_size
+        encrypted_size.insert(0, N)
+        encrypted_size.append(2) # using 2-D points
+        encrypted = coords.view(encrypted_size)  
+
+        return encrypted #[N, (orig_size), 2]
+
 
     def process(self, data: Any) -> Any:
         # Load round_info object
@@ -62,7 +96,6 @@ class Processor(model.Processor):
             self.lock.acquire()
             with open(round_info_filename, "rb") as round_info_file:
                 round_info = pickle.load(round_info_file)
-            self.lock.release()
 
         num_clients = len(round_info['selected_clients'])
 
@@ -75,34 +108,27 @@ class Processor(model.Processor):
         # Split weights randomly into n shares
         # Initialize data_shares to the shape of data
         data_shares = [copy.deepcopy(data) for i in range(num_clients)]
-        # shape of tensor values for each key
-        data_shape = [dict() for i in range(num_clients)]
 
         # Iterate over the keys of data to split
         for key in data.keys():
             # multiply by num_samples used to train the client
             data[key] *= round_info[f"client_{self.client_id}_info"]['num_samples']
 
-            # Split tensor randomly into num_clients shares
-            tensor_shares = self.splitTensor(data[key], num_clients, 5)
+            tensor_shares = self.splitTensor(data[key], num_clients) 
 
             # Store tensor_shares into data_shares for the particular key
             for i in range(num_clients):
                 data_shares[i][key] = tensor_shares[i]
-                data_shape[i][key] = list(tensor_shares[i].size())
- 
-        # Store secret shares and data shape into round_info
+        
+        # Store secret shares in round_info
         for i, client_id in enumerate(round_info['selected_clients']):
             # Skip the client itself
-            if client_id == self.client_id:
+            if client_id == self.client_id: 
                 self.client_share_index = i # keep track of the index to return the client's share in the end
                 continue
 
-            if round_info[f"client_{client_id}_info"]["data"] == None:
-                round_info[f"client_{client_id}_info"]["data"] = data_shares[i]
-            else:
-                for key in data.keys():
-                    round_info[f"client_{client_id}_info"]["data"][key] += data_shares[i][key] #what to do with addtion?
+            round_info[f"client_{client_id}_{self.client_id}_info"]["data"] = data_shares[i]
+
 
         logging.debug("Print round_info keys before filling client data")
         logging.debug(round_info.keys())
@@ -116,5 +142,6 @@ class Processor(model.Processor):
         else:
             with open(round_info_filename, "wb") as round_info_file:
                 pickle.dump(round_info, round_info_file)
+            self.lock.release()
 
         return data_shares[self.client_share_index]

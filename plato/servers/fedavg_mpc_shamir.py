@@ -6,6 +6,10 @@ import asyncio
 import logging
 import os
 import random
+import pickle
+import numpy as np
+import torch
+import math
 
 from plato.algorithms import registry as algorithms_registry
 from plato.config import Config
@@ -15,9 +19,23 @@ from plato.samplers import all_inclusive
 from plato.servers import base
 from plato.trainers import registry as trainers_registry
 from plato.utils import csv_processor, fonts
-import pickle
 from plato.utils import s3
 
+class fraction:
+    n = 0 #numerator
+    d = 0 #denominator
+
+    def __init__(self, n, d):
+        self.n = n
+        self.d = d
+    
+    def mult(self, f):
+        temp_frac = fraction(self.n * f.n, self.d * f.d)
+        return temp_frac
+    
+    def add(self, f):
+        temp_frac = fraction(self.n * f.d + self.d * f.n, self.d * f.d)
+        return temp_frac
 
 class Server(base.Server):
     """Federated learning server using federated averaging."""
@@ -281,6 +299,52 @@ class Server(base.Server):
 
         return accuracy
 
+    #generate the secret from the given points
+    #Uses Lagrange Basis Polynomial, finds poly[0]
+    def recover_secret(self, x, y, M):
+        ans = fraction(0, 1)
+        #print("ans n"+str(ans.n)+"ans d"+str(ans.d))
+
+        for i in range(0, M):
+            l = fraction(y[i], 1)
+            for j in range(0, M):
+                #compute the lagrange terms
+                if i != j:
+                    temp = fraction(0-x[j], x[i]-x[j])
+                    l = l.mult(temp)
+            
+            ans = ans.add(l)
+
+        return ans.n / ans.d
+    
+    #input tensors is a list of point coordinates 
+    def decrypt_tensor(self, tensors, M=None):
+        tensor_size = list(tensors.size())
+        N = tensor_size[0] #number of participating clients
+        if M == None: #number of points used in decryption, K <= M <= N
+            M = N - 2 #default
+        
+        num_weights = int(math.prod(tensor_size) / (N * 2))
+        coords_shape = [N, num_weights, 2]
+        coords = tensors.view(coords_shape)
+
+        secret_arr = torch.zeros([num_weights])
+        for i in range(num_weights):
+            list_points = torch.zeros([M, 2])
+            for j in range(M): #picking the first M points from the N points received (can pick randomly)
+                list_points[j] = coords[j][i]
+            x = np.zeros(M)
+            y = np.zeros(M)
+            for j in range(M):
+                x[j] = list_points[j][0]
+                y[j] = list_points[j][1]
+            secret_arr[i] = self.recover_secret(x, y, M)
+
+        tensor_size.pop(0)
+        tensor_size.pop(-1)
+        return secret_arr.view(tensor_size)
+
+
     def weights_received(self, weights_received):
         """
         Method called after the updated weights have been received.
@@ -301,9 +365,21 @@ class Server(base.Server):
             return weights_received
 
         # Combine the client's weights share with weights shares sent from other clients
-        for i, client in enumerate(round_info['selected_clients']):
+        for i, from_client in enumerate(round_info['selected_clients']):
             for key in weights_received[i].keys():
-                weights_received[i][key] += round_info[f"client_{client}_info"]["data"][key]
+                tensor_size =  list(weights_received[i][key].size())
+                tensor_size.insert(0, len(round_info['selected_clients']))
+                cur_val = torch.zeros(tensor_size)
+                cur_val[0] = weights_received[i][key]
+                insert_idx = 1
+
+                for j, to_client in enumerate(round_info['selected_clients']):
+                    if j == i:
+                        continue
+                    cur_val[insert_idx] = round_info[f"client_{to_client}_{from_client}_info"]["data"][key]
+                    insert_idx = insert_idx + 1
+
+                weights_received[i][key] = self.decrypt_tensor(cur_val)
 
         # Store the combined weights in files for testing
         for i, client in enumerate(round_info['selected_clients']):
@@ -332,11 +408,14 @@ class Server(base.Server):
             "selected_clients": selected_clients
         }
 
-        for client in selected_clients:
-            round_info[f"client_{client}_info"] = {
-                "num_samples": None,
-                "data": None
+        for client_to in selected_clients:
+            round_info[f"client_{client_to}_info"]  = {
+                "num_samples": None
             }
+            for client_from in selected_clients:
+                round_info[f"client_{client_to}_{client_from}_info"] = {  
+                    "data": None
+                }
 
         # Store selected clients info into a file or S3 bucket
         if self.s3_client is not None:
