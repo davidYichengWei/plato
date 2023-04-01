@@ -1,16 +1,17 @@
 from typing import Any
 
-from plato.processors import model
 import pickle
+import logging
 import torch
-import random
+import math
+import copy
+from plato.processors import model
 from plato.config import Config
 from plato.utils import s3
-import logging
 from kazoo.client import KazooClient
 from kazoo.recipe.lock import Lock
-import copy
-import math
+from random import randint
+
 
 class Processor(model.Processor):
     """
@@ -25,8 +26,9 @@ class Processor(model.Processor):
         self.zk = None
         self.lock = kwargs["file_lock"]
 
-    #y = poly[0] + x*poly[1] + x^2*poly[2]
-    def calculate_Y (self, x, poly): #np.array
+    # compute y value for a given x value
+    # e.g. y = poly[0] + x*poly[1] + x^2*poly[2] 
+    def calculate_Y (self, x, poly):
         y = 0
         tmp = 1
 
@@ -42,8 +44,7 @@ class Processor(model.Processor):
         poly = torch.zeros(K)
         poly[0] = S #the y-intercept
         for i in range(1, K):
-            #poly[i] = randint(1, 997) 
-            poly[i] = 100 + i
+            poly[i] = randint(1, 999) 
         points = torch.zeros([N, 2])
 
         #Generate N points from the polynomial
@@ -59,15 +60,15 @@ class Processor(model.Processor):
             K = max(N-2, 1) #threshold chosen by the user
         
         orig_size = list(secret_data.size())
-        dimen_len = math.prod(orig_size) #product of the size array
+        dimen_len = math.prod(orig_size) #number of entries
         arr_one_dimen = secret_data.view(dimen_len)
 
-        coords_size = [N, dimen_len, 2] #4 (num clients), 18 (num points), 2 (2-D point)
+        coords_size = [N, dimen_len, 2] #num clients, num points, 2-D point
         coords = torch.empty(coords_size)   
 
         for i in range(dimen_len): #iterate through each weight value
             points = self.secret_sharing(arr_one_dimen[i], N, K) #size [N, 2] tensor
-            for j in range( N):
+            for j in range(N):
                 coords[j][i] = points[j] #coordinates[j] is the data points sending to client j
 
         encrypted_size = orig_size
