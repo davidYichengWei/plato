@@ -218,13 +218,13 @@ class Client(base.Client):
                 logging.debug("Saving round_info with current_client_info to file")
                 with open(round_info_filename, "wb") as round_info_file:
                     pickle.dump(round_info, round_info_file)
-                self.lock.release()
         finally:
             if self.s3_client is not None:
-                if lock.locked():
-                    lock.release()
+                lock.release()
                 logging.info("[%s] Released Zookeeper lock", self)
                 self.zk.stop()
+            else:
+                self.lock.release()
 
         self._report = self.customize_report(report)
 
