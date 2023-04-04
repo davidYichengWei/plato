@@ -195,7 +195,6 @@ class Server(base.Server):
             aggregated_weights[key] /= self.total_samples
 
         return aggregated_weights
-            
 
     async def _process_reports(self):
         """Process the client reports by aggregating their weights."""
@@ -299,31 +298,30 @@ class Server(base.Server):
 
         return accuracy
 
-    #generate the secret from the given points
-    #Uses Lagrange Basis Polynomial, finds poly[0]
     def recover_secret(self, x, y, M):
+        """
+        generate the secret from the given points,
+        uses Lagrange Basis Polynomial to find poly[0]
+        """
         ans = fraction(0, 1)
-        #print("ans n"+str(ans.n)+"ans d"+str(ans.d))
 
         for i in range(0, M):
-            l = fraction(y[i], 1)
+            frac = fraction(y[i], 1)
             for j in range(0, M):
                 #compute the lagrange terms
                 if i != j:
                     temp = fraction(0-x[j], x[i]-x[j])
-                    l = l.mult(temp)
-            
-            ans = ans.add(l)
+                    frac = frac.mult(temp)
+            ans = ans.add(frac)
 
         return ans.n / ans.d
-    
-    #input tensors is a list of point coordinates 
+
     def decrypt_tensor(self, tensors, M=None):
+        """recursively call recover_secret on a tensor"""
         tensor_size = list(tensors.size())
         N = tensor_size[0] #number of participating clients
-        if M == None: #number of points used in decryption, K <= M <= N
+        if M is None: #number of points used in decryption, K <= M <= N
             M = N - 2 #default
-        
         num_weights = int(math.prod(tensor_size) / (N * 2))
         coords_shape = [N, num_weights, 2]
         coords = tensors.view(coords_shape)
@@ -331,7 +329,8 @@ class Server(base.Server):
         secret_arr = torch.zeros([num_weights])
         for i in range(num_weights):
             list_points = torch.zeros([M, 2])
-            for j in range(M): #picking the first M points from the N points received (can pick randomly)
+            for j in range(M):
+                #picking the first M points from the N points received
                 list_points[j] = coords[j][i]
             x = np.zeros(M)
             y = np.zeros(M)
@@ -376,17 +375,19 @@ class Server(base.Server):
                 for j, to_client in enumerate(round_info['selected_clients']):
                     if j == i:
                         continue
-                    cur_val[insert_idx] = round_info[f"client_{to_client}_{from_client}_info"]["data"][key]
+                    cur_val[insert_idx] = \
+                        round_info[f"client_{to_client}_{from_client}_info"]["data"][key]
                     insert_idx = insert_idx + 1
 
                 weights_received[i][key] = self.decrypt_tensor(cur_val)
 
         # Store the combined weights in files for testing
         for i, client in enumerate(round_info['selected_clients']):
-            encrypted_weights_filename = "mpc_data/encrypted_weights_round%s_client%s" % (round_info['round_number'], client)
-            f = open(encrypted_weights_filename, "w")
-            f.write(str(weights_received[i]))
-            f.close()
+            encrypted_weights_filename = \
+                f"mpc_data/encrypted_weights_round{round_info['round_number']}_client{client}"
+            file = open(encrypted_weights_filename, "w", encoding="utf8")
+            file.write(str(weights_received[i]))
+            file.close()
 
         return weights_received
 
@@ -394,7 +395,7 @@ class Server(base.Server):
         """
         Method called after the updated weights have been aggregated.
         """
-    
+
     def choose_clients(self, clients_pool, clients_count):
         """Chooses a subset of the clients to participate in each round."""
         assert clients_count <= len(clients_pool)
@@ -413,7 +414,7 @@ class Server(base.Server):
                 "num_samples": None
             }
             for client_from in selected_clients:
-                round_info[f"client_{client_to}_{client_from}_info"] = {  
+                round_info[f"client_{client_to}_{client_from}_info"] = {
                     "data": None
                 }
 
@@ -426,8 +427,8 @@ class Server(base.Server):
             round_info_filename = "mpc_data/round_info"
             with open(round_info_filename, "wb") as round_info_file:
                 pickle.dump(round_info, round_info_file)
-            logging.debug("[%s] Stored information for the current round in file mpc_data/round_info", self)
-
+            logging.debug("[%s] Stored information for the current "\
+                "round in file mpc_data/round_info", self)
 
         self.prng_state = random.getstate()
         logging.info("[%s] Selected clients: %s", self, selected_clients)

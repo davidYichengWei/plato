@@ -6,6 +6,7 @@ import asyncio
 import logging
 import os
 import random
+import pickle
 
 from plato.algorithms import registry as algorithms_registry
 from plato.config import Config
@@ -15,7 +16,6 @@ from plato.samplers import all_inclusive
 from plato.servers import base
 from plato.trainers import registry as trainers_registry
 from plato.utils import csv_processor, fonts
-import pickle
 from plato.utils import s3
 
 
@@ -125,7 +125,6 @@ class Server(base.Server):
 
         if hasattr(Config().server, "s3_endpoint_url"):
             self.s3_client = s3.S3()
-    
 
     def init_trainer(self) -> None:
         """Setting up the global model, trainer, and algorithm."""
@@ -185,7 +184,6 @@ class Server(base.Server):
             aggregated_weights[key] /= self.total_samples
 
         return aggregated_weights
-            
 
     async def _process_reports(self):
         """Process the client reports by aggregating their weights."""
@@ -315,10 +313,11 @@ class Server(base.Server):
 
         # Store the combined weights in files for testing
         for i, client in enumerate(round_info['selected_clients']):
-            encrypted_weights_filename = "mpc_data/encrypted_weights_round%s_client%s" % (round_info['round_number'], client)
-            f = open(encrypted_weights_filename, "w")
-            f.write(str(weights_received[i]))
-            f.close()
+            encrypted_weights_filename = \
+                f"mpc_data/encrypted_weights_round{round_info['round_number']}_client{client}"
+            file = open(encrypted_weights_filename, "w", encoding="utf8")
+            file.write(str(weights_received[i]))
+            file.close()
 
         return weights_received
 
@@ -326,7 +325,7 @@ class Server(base.Server):
         """
         Method called after the updated weights have been aggregated.
         """
-    
+
     def choose_clients(self, clients_pool, clients_count):
         """Chooses a subset of the clients to participate in each round."""
         assert clients_count <= len(clients_pool)
@@ -355,7 +354,8 @@ class Server(base.Server):
             round_info_filename = "mpc_data/round_info"
             with open(round_info_filename, "wb") as round_info_file:
                 pickle.dump(round_info, round_info_file)
-            logging.debug("[%s] Stored information for the current round in file mpc_data/round_info", self)
+            logging.debug("[%s] Stored information for the current "\
+                "round in file mpc_data/round_info", self)
 
 
         self.prng_state = random.getstate()

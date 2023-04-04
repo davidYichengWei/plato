@@ -4,7 +4,11 @@ A basic federated learning client who sends weight updates to the server.
 
 import logging
 import time
+import pickle
+
 from types import SimpleNamespace
+from kazoo.client import KazooClient
+from kazoo.recipe.lock import Lock
 
 from plato.algorithms import registry as algorithms_registry
 from plato.clients import base
@@ -14,11 +18,7 @@ from plato.processors import registry as processor_registry
 from plato.samplers import registry as samplers_registry
 from plato.trainers import registry as trainers_registry
 from plato.utils import fonts
-import pickle
 from plato.utils import s3
-from kazoo.client import KazooClient
-from kazoo.recipe.lock import Lock
-import os
 
 class Client(base.Client):
     """A basic federated learning client who sends simple weight updates."""
@@ -81,8 +81,7 @@ class Client(base.Client):
         if hasattr(Config().server, "s3_endpoint_url"):
             self.s3_client = s3.S3()
             # Use Zookeeper for distributed locking
-            self.zk = KazooClient(hosts = f'{Config().server.zk_address}:{Config().server.zk_port}')
-            
+            self.zk = KazooClient(hosts = f'{Config().server.zk_address}:{Config().server.zk_port}')     
 
     def _load_data(self) -> None:
         """Generates data and loads them onto this client."""
@@ -189,7 +188,7 @@ class Client(base.Client):
             comm_time=comm_time,
             update_response=False,
         )
-        
+
         # Save num_samples info in round_info
         try:
             if self.s3_client is not None:
