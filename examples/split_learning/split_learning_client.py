@@ -77,10 +77,9 @@ class Client(simple.Client):
                 logging.warning(
                     "[%s] Finished training, sending weights to the server.", self
                 )
-                # Save the state of current client
-                self._save_context(self.client_id)
                 # Send weights to server for evaluation
                 report = SimpleNamespace(
+                    client_id=self.client_id,
                     num_samples=self.sampler.num_samples(),
                     accuracy=0,
                     training_time=training_time,
@@ -95,6 +94,8 @@ class Client(simple.Client):
                 report, payload = self._extract_features()
                 report.training_time += training_time
 
+            # Save the state of current client
+            self._save_context(self.client_id)
         return report, payload
 
     def _save_context(self, client_id):
@@ -131,6 +132,7 @@ class Client(simple.Client):
             self.trainset, self.static_sampler
         )
         report = SimpleNamespace(
+            client_id=self.client_id,
             num_samples=self.sampler.num_samples(),
             accuracy=0,
             training_time=training_time,
