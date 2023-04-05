@@ -22,19 +22,32 @@ from plato.utils import csv_processor, fonts
 from plato.utils import s3
 
 class fraction:
-    n = 0 #numerator
-    d = 0 #denominator
+    """Used in computation of Lagrange terms in decryption of Shamir tensors"""
+    num = 0 #numerator
+    den = 0 #denominator
 
-    def __init__(self, n, d):
-        self.n = n
-        self.d = d
-    
-    def mult(self, f):
-        temp_frac = fraction(self.n * f.n, self.d * f.d)
+    def __init__(self, num, den):
+        self.num = num
+        self.den = den
+
+    def reduce_frac(self):
+        """Divide numerator and denominator by their greatest common divisor"""
+        gcd = math.gcd(int(self.num), int(self.den))
+        if gcd == 0:
+            return
+        self.num = int(self.num / gcd)
+        self.den = int(self.den / gcd)
+
+    def mult(self, frac):
+        """Multiply two fractions"""
+        temp_frac = fraction(self.num * frac.num, self.den * frac.den)
+        temp_frac.reduce_frac()
         return temp_frac
-    
-    def add(self, f):
-        temp_frac = fraction(self.n * f.d + self.d * f.n, self.d * f.d)
+
+    def add(self, frac):
+        """Add two fractions"""
+        temp_frac = fraction(self.num * frac.den + self.den * frac.num, self.den * frac.den)
+        temp_frac.reduce_frac()
         return temp_frac
 
 class Server(base.Server):
@@ -299,11 +312,13 @@ class Server(base.Server):
 
         return accuracy
 
-    #generate the secret from the given points
-    #Uses Lagrange Basis Polynomial, finds poly[0]
+
     def recover_secret(self, x, y, M):
+        """
+        recover the secret from the given points
+        Uses Lagrange Basis Polynomial, finds poly[0]
+        """
         ans = fraction(0, 1)
-        #print("ans n"+str(ans.n)+"ans d"+str(ans.d))
 
         for i in range(0, M):
             l = fraction(y[i], 1)
@@ -312,33 +327,52 @@ class Server(base.Server):
                 if i != j:
                     temp = fraction(0-x[j], x[i]-x[j])
                     l = l.mult(temp)
-            
             ans = ans.add(l)
 
-        return ans.n / ans.d
-    
-    #input tensors is a list of point coordinates 
+        return (ans.num / ans.den) / 1000000
+
     def decrypt_tensor(self, tensors, M=None):
+        """Iteratively decrypt a tensor by calling recover_secret"""
         tensor_size = list(tensors.size())
         N = tensor_size[0] #number of participating clients
-        if M == None: #number of points used in decryption, K <= M <= N
+        if M is None: #number of points used in decryption, K <= M <= N
             M = N - 2 #default
-        
+
         num_weights = int(math.prod(tensor_size) / (N * 2))
         coords_shape = [N, num_weights, 2]
         coords = tensors.view(coords_shape)
 
         secret_arr = torch.zeros([num_weights])
         for i in range(num_weights):
-            list_points = torch.zeros([M, 2])
-            for j in range(M): #picking the first M points from the N points received (can pick randomly)
+            list_points = torch.zeros([N, 2])
+            #picking the first M points from the N points received (can pick randomly)
+            for j in range(N):
                 list_points[j] = coords[j][i]
-            x = np.zeros(M)
-            y = np.zeros(M)
-            for j in range(M):
+
+            x = np.zeros(N)
+            y = np.zeros(N)
+            for j in range(N):
                 x[j] = list_points[j][0]
                 y[j] = list_points[j][1]
-            secret_arr[i] = self.recover_secret(x, y, M)
+
+            #get the first M non-repeating x values
+            freq_dict = {}
+            result_x = np.zeros(M)
+            result_y = np.zeros(M)
+            result_idx = 0
+            for idx, elem in enumerate(x):
+                freq_dict[elem] = freq_dict.get(elem, 0) + 1
+                if freq_dict[elem] == 1:
+                    result_x[result_idx] = elem
+                    result_y[result_idx] = y[idx]
+                    result_idx = result_idx + 1
+                    if result_idx == M:
+                        break
+                    
+            if (len(result_x) < M):
+                logging.info("LENTH is less than M")
+
+            secret_arr[i] = self.recover_secret(result_x, result_y, M)
 
         tensor_size.pop(0)
         tensor_size.pop(-1)
@@ -383,10 +417,11 @@ class Server(base.Server):
 
         # Store the combined weights in files for testing
         for i, client in enumerate(round_info['selected_clients']):
-            encrypted_weights_filename = "mpc_data/encrypted_weights_round%s_client%s" % (round_info['round_number'], client)
-            f = open(encrypted_weights_filename, "w")
-            f.write(str(weights_received[i]))
-            f.close()
+            encrypted_weights_filename = "mpc_data/encrypted_weights_round"\
+                f"{round_info['round_number']}_client{client}"
+            file = open(encrypted_weights_filename, "w", encoding="utf8")
+            file.write(str(weights_received[i]))
+            file.close()
 
         return weights_received
 
@@ -394,7 +429,7 @@ class Server(base.Server):
         """
         Method called after the updated weights have been aggregated.
         """
-    
+
     def choose_clients(self, clients_pool, clients_count):
         """Chooses a subset of the clients to participate in each round."""
         assert clients_count <= len(clients_pool)

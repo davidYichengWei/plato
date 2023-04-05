@@ -47,10 +47,14 @@ class Processor(model.Processor):
         Function to encode a given secret, given by S
         Generates a K-degree polynomial, and N points
         """
+        S = round(S.item()*1000000)
         poly = torch.zeros(K)
         poly[0] = S #the y-intercept
         for i in range(1, K):
-            poly[i] = randint(1, 999)
+            val = randint(1, 999)
+            while val in poly: #avoid having duplicate x values
+                val = randint(1, 999)
+            poly[i] = val
         points = torch.zeros([N, 2])
 
         #Generate N points from the polynomial
