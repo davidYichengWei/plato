@@ -70,9 +70,9 @@ class Processor(model.Processor):
 
         # Store the client's weights before encryption in a file for testing
         weights_filename = "mpc_data/raw_weights_round%s_client%s" % (round_info['round_number'], self.client_id)
-        f = open(weights_filename, "w")
-        f.write(str(data))
-        f.close()
+        with open(weights_filename, "wb") as weights_file:
+            pickle.dump(data, weights_file)
+        # file.write(str(data))
 
         # Split weights randomly into n shares
         # Initialize data_shares to the shape of data

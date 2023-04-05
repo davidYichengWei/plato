@@ -336,7 +336,10 @@ class Server(base.Server):
         tensor_size = list(tensors.size())
         N = tensor_size[0] #number of participating clients
         if M is None: #number of points used in decryption, K <= M <= N
-            M = N - 2 #default
+            if N <= 3:
+                M = N
+            else:
+                M = N - 2
 
         num_weights = int(math.prod(tensor_size) / (N * 2))
         coords_shape = [N, num_weights, 2]
@@ -417,11 +420,9 @@ class Server(base.Server):
 
         # Store the combined weights in files for testing
         for i, client in enumerate(round_info['selected_clients']):
-            encrypted_weights_filename = "mpc_data/encrypted_weights_round"\
-                f"{round_info['round_number']}_client{client}"
-            file = open(encrypted_weights_filename, "w", encoding="utf8")
-            file.write(str(weights_received[i]))
-            file.close()
+            encrypted_weights_filename = "mpc_data/encrypted_weights_round%s_client%s" % (round_info['round_number'], client)
+            with open(encrypted_weights_filename, 'wb') as file:
+                pickle.dump(weights_received[i], file)
 
         return weights_received
 
