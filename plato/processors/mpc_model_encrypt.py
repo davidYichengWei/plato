@@ -25,7 +25,7 @@ class Processor(model.Processor):
         self.lock = kwargs["file_lock"]
 
     # Randomly split a tensor into N shares
-    def splitTensor(self, tensor, N, random_range):
+    def splitTensor(self, tensor, N):
         if N == 1:
             tensors = [tensor]
             return tensors
@@ -34,7 +34,9 @@ class Processor(model.Processor):
         tensors = [tensor / N for i in range(N)]
 
         # Generate a random number for each share
-        rand_nums = [random.randrange(random_range) for i in range(N - 1)]
+        start = -0.5
+        end = 0.5
+        rand_nums = [random.uniform(start, end) for i in range(N - 1)]
         rand_nums.append(0 - sum(rand_nums))
 
         # Add the random numbers to secret shares
@@ -80,7 +82,7 @@ class Processor(model.Processor):
             data[key] *= round_info[f"client_{self.client_id}_info"]['num_samples']
 
             # Split tensor randomly into num_clients shares
-            tensor_shares = self.splitTensor(data[key], num_clients, 5)
+            tensor_shares = self.splitTensor(data[key], num_clients)
 
             # Store tensor_shares into data_shares for the particular key
             for i in range(num_clients):
