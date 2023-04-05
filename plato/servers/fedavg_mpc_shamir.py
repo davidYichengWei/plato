@@ -371,9 +371,6 @@ class Server(base.Server):
                     result_idx = result_idx + 1
                     if result_idx == M:
                         break
-                    
-            if (len(result_x) < M):
-                logging.info("LENTH is less than M")
 
             secret_arr[i] = self.recover_secret(result_x, result_y, M)
 
