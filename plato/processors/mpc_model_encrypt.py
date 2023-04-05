@@ -1,3 +1,7 @@
+"""
+Implements additive secret sharing algorithm to encrypt model parameters.
+"""
+
 from typing import Any
 
 from plato.processors import model

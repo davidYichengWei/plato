@@ -1,17 +1,20 @@
-from typing import Any
+"""
+Implements Shamir secret sharing algorithm to encrypt model parameters.
+"""
 
 import pickle
 import logging
-import torch
 import math
 import copy
+import torch
+
+from random import randint
+from typing import Any
+from kazoo.client import KazooClient
+from kazoo.recipe.lock import Lock
 from plato.processors import model
 from plato.config import Config
 from plato.utils import s3
-from kazoo.client import KazooClient
-from kazoo.recipe.lock import Lock
-from random import randint
-
 
 class Processor(model.Processor):
     """
@@ -26,9 +29,11 @@ class Processor(model.Processor):
         self.zk = None
         self.lock = kwargs["file_lock"]
 
-    # compute y value for a given x value
-    # e.g. y = poly[0] + x*poly[1] + x^2*poly[2] 
-    def calculate_Y (self, x, poly):
+    def calculate_y (self, x, poly):
+        """
+        compute y value for a given x value
+        e.g. y = poly[0] + x*poly[1] + x^2*poly[2]
+        """
         y = 0
         tmp = 1
 
@@ -37,34 +42,38 @@ class Processor(model.Processor):
             tmp = tmp * x
         return y
 
-    #Function to encode a given secret
-    #Generates a K-degree polynomial, and N points
     def secret_sharing(self, S, N, K):
-        #S is the secret int
+        """
+        Function to encode a given secret, given by S
+        Generates a K-degree polynomial, and N points
+        """
         poly = torch.zeros(K)
         poly[0] = S #the y-intercept
         for i in range(1, K):
-            poly[i] = randint(1, 999) 
+            poly[i] = randint(1, 999)
         points = torch.zeros([N, 2])
 
         #Generate N points from the polynomial
         for j in range(1, N+1):
             points[j-1][0] = j #x value of point
-            points[j-1][1] = self.calculate_Y(j, poly) #y value of point
+            points[j-1][1] = self.calculate_y(j, poly) #y value of point
 
         return points
 
-    # Encrypt tensor using Shamir
-    def splitTensor(self, secret_data, N, K=None):
+    def split_tensor(self, secret_data, N, K=None):
+        """Encrypt tensor using Shamir"""
+        if N == 1:
+            return secret_data.unsqueeze(0)
+
         if K is None:
             K = max(N-2, 1) #threshold chosen by the user
-        
+
         orig_size = list(secret_data.size())
         dimen_len = math.prod(orig_size) #number of entries
         arr_one_dimen = secret_data.view(dimen_len)
 
         coords_size = [N, dimen_len, 2] #num clients, num points, 2-D point
-        coords = torch.empty(coords_size)   
+        coords = torch.empty(coords_size)
 
         for i in range(dimen_len): #iterate through each weight value
             points = self.secret_sharing(arr_one_dimen[i], N, K) #size [N, 2] tensor
@@ -74,13 +83,12 @@ class Processor(model.Processor):
         encrypted_size = orig_size
         encrypted_size.insert(0, N)
         encrypted_size.append(2) # using 2-D points
-        encrypted = coords.view(encrypted_size)  
+        encrypted = coords.view(encrypted_size)
 
-        return encrypted #[N, (orig_size), 2]
-
+        return encrypted #size [N, (orig_size), 2]
 
     def process(self, data: Any) -> Any:
-        # Load round_info object
+        """Load round_info object"""
         if hasattr(Config().server, "s3_endpoint_url"):
             self.zk = KazooClient(hosts = f'{Config().server.zk_address}:{Config().server.zk_port}')
             self.zk.start()
@@ -101,10 +109,11 @@ class Processor(model.Processor):
         num_clients = len(round_info['selected_clients'])
 
         # Store the client's weights before encryption in a file for testing
-        weights_filename = "mpc_data/raw_weights_round%s_client%s" % (round_info['round_number'], self.client_id)
-        f = open(weights_filename, "w")
-        f.write(str(data))
-        f.close()
+        weights_filename = f"mpc_data/raw_weights_round{round_info['round_number']}"\
+            f"_client{self.client_id}"
+        file = open(weights_filename, "w", encoding="utf8")
+        file.write(str(data))
+        file.close()
 
         # Split weights randomly into n shares
         # Initialize data_shares to the shape of data
@@ -115,21 +124,21 @@ class Processor(model.Processor):
             # multiply by num_samples used to train the client
             data[key] *= round_info[f"client_{self.client_id}_info"]['num_samples']
 
-            tensor_shares = self.splitTensor(data[key], num_clients) 
+            tensor_shares = self.split_tensor(data[key], num_clients)
 
             # Store tensor_shares into data_shares for the particular key
             for i in range(num_clients):
                 data_shares[i][key] = tensor_shares[i]
-        
+
         # Store secret shares in round_info
         for i, client_id in enumerate(round_info['selected_clients']):
             # Skip the client itself
-            if client_id == self.client_id: 
-                self.client_share_index = i # keep track of the index to return the client's share in the end
+            if client_id == self.client_id:
+                # keep track of the index to return the client's share in the end
+                self.client_share_index = i
                 continue
 
             round_info[f"client_{client_id}_{self.client_id}_info"]["data"] = data_shares[i]
-
 
         logging.debug("Print round_info keys before filling client data")
         logging.debug(round_info.keys())
