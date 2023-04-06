@@ -335,11 +335,8 @@ class Server(base.Server):
         """Iteratively decrypt a tensor by calling recover_secret"""
         tensor_size = list(tensors.size())
         N = tensor_size[0] #number of participating clients
-        if M is None: #number of points used in decryption, K <= M <= N
-            if N <= 3:
-                M = N
-            else:
-                M = N - 2
+        if M is None: #number of points used in decryption
+            M = max(N-2, 1)
 
         num_weights = int(math.prod(tensor_size) / (N * 2))
         coords_shape = [N, num_weights, 2]
