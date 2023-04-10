@@ -392,11 +392,11 @@ class Server(base.Server):
                 round_info = pickle.load(round_info_file)
 
         # Store the combined weights in files for testing
-        for i, client in enumerate(round_info['selected_clients']):
-            encrypted_weights_filename = "mpc_data/encrypted_weights_round%s_client%s" % (round_info['round_number'], client)
-            with open(encrypted_weights_filename, 'w') as file:
-                #pickle.dump(weights_received[i], file)
-                file.write(str(weights_received[i]))
+        # for i, client in enumerate(round_info['selected_clients']):
+        #     encrypted_weights_filename = "mpc_data/encrypted_weights_round%s_client%s" % (round_info['round_number'], client)
+        #     with open(encrypted_weights_filename, 'w') as file:
+        #         #pickle.dump(weights_received[i], file)
+        #         file.write(str(weights_received[i]))
 
         # If there is only 1 client per round, skip the following step
         if len(round_info['selected_clients']) == 1:
@@ -404,6 +404,9 @@ class Server(base.Server):
 
         # Combine the client's weights share with weights shares sent from other clients
         for i, from_client in enumerate(round_info['selected_clients']):
+            encrypted_weights_filename = "mpc_data/encrypted_weights_round%s_client%s" % (round_info['round_number'], from_client)
+            file = open(encrypted_weights_filename, 'w')
+
             for key in weights_received[i].keys():
                 tensor_size =  list(weights_received[i][key].size())
                 tensor_size.insert(0, len(round_info['selected_clients']))
@@ -416,8 +419,10 @@ class Server(base.Server):
                         continue
                     cur_val[insert_idx] = round_info[f"client_{to_client}_{from_client}_info"]["data"][key]
                     insert_idx = insert_idx + 1
-
+                file.write(key)
+                file.write(str(cur_val))
                 weights_received[i][key] = self.decrypt_tensor(cur_val)
+            file.close()
 
         return weights_received
 
