@@ -391,6 +391,13 @@ class Server(base.Server):
             with open(round_info_filename, "rb") as round_info_file:
                 round_info = pickle.load(round_info_file)
 
+        # Store the combined weights in files for testing
+        for i, client in enumerate(round_info['selected_clients']):
+            encrypted_weights_filename = "mpc_data/encrypted_weights_round%s_client%s" % (round_info['round_number'], client)
+            with open(encrypted_weights_filename, 'w') as file:
+                #pickle.dump(weights_received[i], file)
+                file.write(str(weights_received[i]))
+
         # If there is only 1 client per round, skip the following step
         if len(round_info['selected_clients']) == 1:
             return weights_received
@@ -411,12 +418,6 @@ class Server(base.Server):
                     insert_idx = insert_idx + 1
 
                 weights_received[i][key] = self.decrypt_tensor(cur_val)
-
-        # Store the combined weights in files for testing
-        for i, client in enumerate(round_info['selected_clients']):
-            encrypted_weights_filename = "mpc_data/encrypted_weights_round%s_client%s" % (round_info['round_number'], client)
-            with open(encrypted_weights_filename, 'wb') as file:
-                pickle.dump(weights_received[i], file)
 
         return weights_received
 

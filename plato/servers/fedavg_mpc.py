@@ -316,8 +316,9 @@ class Server(base.Server):
         # Store the combined weights in files for testing
         for i, client in enumerate(round_info['selected_clients']):
             encrypted_weights_filename = "mpc_data/encrypted_weights_round%s_client%s" % (round_info['round_number'], client)
-            with open(encrypted_weights_filename, 'wb') as file:
-                pickle.dump(weights_received[i], file)
+            with open(encrypted_weights_filename, 'w') as file:
+                #pickle.dump(weights_received[i], file)
+                file.write(str(weights_received[i]))
 
         return weights_received
 
