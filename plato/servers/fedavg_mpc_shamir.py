@@ -146,6 +146,13 @@ class Server(base.Server):
             csv_processor.initialize_csv(
                 accuracy_csv_file, accuracy_headers, Config().params["result_path"]
             )
+        
+        if hasattr(Config().clients, "type") and Config().clients.type == "mpc":
+            if "mpc_data" not in os.listdir("./"):
+                os.mkdir("mpc_data")
+            # erase the file before we start training 
+            temp = open("./mpc_data/round_info", "wb")
+            temp.close()
 
         if hasattr(Config().server, "s3_endpoint_url"):
             self.s3_client = s3.S3()

@@ -1,0 +1,3 @@
+[submodule "examples/pfedrlnas/VIT/nasvit_wrapper/NASViT"]
+	path = examples/pfedrlnas/VIT/nasvit_wrapper/NASViT
+	url = https://github.com/facebookresearch/NASViT

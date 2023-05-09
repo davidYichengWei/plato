@@ -7,11 +7,7 @@ on a configuration at run-time.
 import logging
 
 from plato.config import Config
-from plato.clients import (
-    simple,
-    mistnet,
-    mpc,
-)
+from plato.clients import simple, mistnet, mpc
 
 registered_clients = {
     "simple": simple.Client,

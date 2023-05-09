@@ -245,22 +245,238 @@ Hongxia et al., &ldquo;[FedTP: Federated Learning by Transformer Personalization
 ````
 
 ````{admonition} **PerFedRLNAS**
-PerFedRLNAS is an algorithm designed to personalize different models on each client considering data and system heterogeneity, via Federated Neural Architecture Search. Different from FedRLNAS, where the server searches a uniform architecture for all clients. In this algorithm, each client will be given a different model strcuture and learn personalized architecture and model weights. In this example, the update rules and sample rules are redesigned to support this feature. In current implementation, only example of NASVIT search space is provided.
+PerFedRLNAS is an algorithm designed to personalize different models on each client considering data and system heterogeneity, via Federated Neural Architecture Search. Different from FedRLNAS, where the server searches a uniform architecture for all clients. In this algorithm, each client will be given a different model strcuture and learn personalized architecture and model weights. In this example, the update rules and sample rules are redesigned to support this feature. In current implementation, examples of NASVIT MobileNetV3, and DARTS search space are provided. 
+
+NASVIT search space:
+```shell
+python ./examples/pfedrlnas/VIT/fednas.py -c ./examples/pfedrlnas/configs/PerFedRLNAS_CIFAR10_NASVIT_NonIID01.yml
+```
+MobileNetV3 search space (synchronous mode):
+```
+python ./examples/pfedrlnas/MobileNetV3/fednas.py -c ./examples/pfedrlnas/configs/PerFedRLNAS_CIFAR10_Mobilenet_NonIID03.yml
+```
+MobileNetV3 search space (asynchronous mode):
+```
+python ./examples/pfedrlnas/MobileNetV3/fednas.py -c ./examples/pfedrlnas/configs/MobileNetV3_CIFAR10_03_async.yml
+```
+DARTS search space
+```
+python ./examples/pfedrlnas/DARTS/fednas.py -c ./examples/pfedrlnas/configs/PerFedRLNAS_CIFAR10_DARTS_NonIID_03.yml
+```
+
+````
+
+````{admonition} **FedRep**
+FedRep is an algorithm for learning a shared data representation across clients and unique, personalized local ``heads'' for each client. In this implementation, after each round of local training, only the representation on each client is retrieved and uploaded to the server for aggregation.
 
 ```shell
-python3 ./examples/pfedrlnas/VIT/fednas.py -c ./examples/pfedrlnas/configs/FedNAS_CIFAR10_NASVIT_NonIID01_Scratch.yml
+python3 examples/fedrep/fedrep.py -c examples/fedrep/fedrep_MNIST_lenet5.yml
+```
+
+```{note}
+Collins et al., &ldquo;[Exploiting Shared Representations for Personalized Federated Learning](http://proceedings.mlr.press/v139/collins21a/collins21a.pdf),
+&rdquo; in International Conference on Machine Learning, 2021.
 ```
 ````
 
+````{admonition} **FedBABU**
+FedBABU argued that a better federated global model performance does not constantly improve personalization. In this algorithm, it only updates the body of the model during FL training. In this implementation, the head is frozen at the beginning of each local training epoch through the API ```train_run_start```.
+
+```shell
+python3 examples/fedbabu/fedbabu.py -c examples/fedbabu/fedavg_cifar10_levit.yml
+```
+
+```{note}
+Oh et al., &ldquo;[FedBABU: Towards Enhanced Representation for Federated Image Classification](https://openreview.net/forum?id=HuaYQfggn5u),
+&rdquo; in International Conference on Learning Representations (ICLR), 2022.
+```
+````
+
+
+````{admonition} **APFL**
+APFL is a synchronous personalized federated learning algorithm that jointly optimizes the global model and personalized models by interpolating between local and personalized models. It has been quite widely cited and compared with in the personalized federated learning literature. In this example, once the global model is received, each client will carry out a regular local update, and then conduct a personalized optimization to acquire a trained personalized model. The trained global model and the personalized model will subsequently be combined using the parameter "alpha," which can be dynamically updated.
+
+```shell
+python examples/apfl/apfl.py -c examples/apfl/apfl_MNIST_lenet5_noniid.yml -b NIPS
+```
+
+```{note}
+Yuyang Deng, et.al., &ldquo;[Adaptive Personalized Federated Learning](https://arxiv.org/abs/2003.13461),
+&rdquo; in Arxiv, 2021.
+```
+````
+
+````{admonition} **FedPer**
+FedPer is a synchronous personalized federated learning algorithm that learns a global representation and personalized heads, but makes simultaneous local updates for both sets of parameters, therefore makes the same number of local updates for the head and the representation on each local round.
+
+```shell
+python examples/fedper/fedper.py -c examples/fedper/fedper_MNIST_lenet5_noniid.yml -b NIPS
+```
+
+```{note}
+Manoj Ghuhan Arivazhagan, et.al., &ldquo;[Federated learning with personalization layers](https://arxiv.org/abs/1912.00818),
+&rdquo; in Arxiv, 2019.
+````{admonition} **LG-FedAvg**
+LG-FedAvg is a synchronous personalized federated learning algorithm that learns local representations and a global head. Therefore, only the head of one model is exchanged between the server and clients, while each client maintains a body of the model as its personalized encoder.
+
+```shell
+python examples/lgfedavg/lgfedavg.py -c examples/lgfedavg/lgfedavg_MNIST_lenet5_noniid.yml -b NIPS
+```
+
+```{note}
+Paul Pu Liang, et.al., &ldquo;[Think Locally, Act Globally: Federated Learning with Local and Global Representations](https://arxiv.org/abs/2001.01523),
+&rdquo; in Proc. NeurIPS, 2019.
+```
+````
+
+
+````{admonition} **Ditto**
+Ditto is another synchronous personalized federated learning algorithm that jointly optimizes the global model and personalized models by learning local models that are encouraged to be close together by global regularization. In this example, once the global model is received, each client will carry out a regular local update followed by a Ditto solver to optimize the personalized model. 
+
+```shell
+python examples/ditto/ditto.py -c examples/ditto/ditto_MNIST_lenet5_noniid.yml -b NIPS
+```
+
+```{note}
+Tian Li, et.al, &ldquo;[Ditto: Fair and robust federated learning through personalization](https://proceedings.mlr.press/v139/li21h.html),
+&rdquo; in Proc ICML, 2021.
+```
+````
+
+````{admonition} **PerFedAvg**
+PerFedAvg focuses the personalized federated learning in which our goal is to find an initial shared model that current or new users can easily adapt to their local dataset by performing one or a few steps of gradient descent with respect to their own data. Specifically, it introduces the Model-Agnostic Meta-Learning (MAML) framework into the local update of federated learning.
+
+```shell
+python examples/perfedavg/perfedavg.py -c examples/perfedavg/perfedavg_MNIST_lenet5_noniid.yml -b NIPS
+```
+
+```{note}
+Alireza Fallah, et.al, &ldquo;[Ditto: Personalized federated learning with theoretical guarantees:
+A model-agnostic meta-learning approach](https://proceedings.neurips.cc/paper/2020/hash/24389bfe4fe2eba8bf9aa9203a44cdad-Abstract.html),
+&rdquo; in Proc NeurIPS, 2020.
+```
+````
+
+````{admonition} **pFLSSL**
+pFLSSL achieves Personalized federated learning by introducing self-supervised learning (SSL) to the training schema. Specifically, there are two stages. In this first stage, one global model is trained based on SSL under the federated training paradigm. Each client, in the second stage, trains its personalized model based on the extracted features of the received global model. Therefore, due to the diversity of SSL approaches, pFLSSL includes:
+- SimCLR [1]
+- BYOL [2]
+- SimSiam [3]
+- MoCoV2 [4]
+- SwAV [5]
+- SMoG [6]
+
+```shell
+python examples/pflSSL/simclr/simclr.py -c examples/pflSSL/simclr/simclr_MNIST_lenet5_noniid.yml -b NIPS
+```
+
+```shell
+python examples/pflSSL/simclr/simclr.py -c examples/pflSSL/simclr/simclr_CIFAR10_resnet18_noniid.yml -b NIPS
+```
+
+```shell
+python examples/pflSSL/byol/byol.py -c examples/pflSSL/byol/byol_MNIST_lenet5_noniid.yml -b NIPS
+```
+
+```shell
+python examples/pflSSL/simsiam/simsiam.py -c examples/pflSSL/simsiam/simsiam_CIFAR10_resnet18_noniid.yml -b NIPS
+```
+
+```shell
+python examples/pflSSL/moco/mocov2.py -c examples/pflSSL/moco/mocov2_CIFAR10_resnet18_noniid.yml -b NIPS
+```
+
+```shell
+python examples/pflSSL/swav/swav.py -c examples/pflSSL/swav/swav_CIFAR10_resnet18_noniid.yml -b NIPS
+```
+
+```shell
+python examples/pflSSL/smog/smog.py -c examples/pflSSL/smog/smog_CIFAR10_resnet18_noniid.yml -b NIPS
+```
+
+```{note}
+[1]. Ting Chen, et.al., &ldquo;[A Simple Framework for Contrastive Learning of Visual Representations](https://arxiv.org/abs/2002.05709),&rdquo; in Proc ICML, 2020.
+
+[2]. Jean-Bastien Grill, et.al, &ldquo;[Bootstrap Your Own Latent A New Approach to Self-Supervised Learning](https://arxiv.org/pdf/2006.07733.pdf), &rdquo; in Proc NeurIPS, 2020.
+
+[3]. Xinlei Chen, et.al, &ldquo;[Exploring Simple Siamese Representation Learning](https://arxiv.org/pdf/2011.10566.pdf), &rdquo; in ArXiv, 2020.
+
+[4]. Xinlei Chen, et.al, &ldquo;[Improved Baselines with Momentum Contrastive Learning](https://arxiv.org/abs/2003.04297), &rdquo; in ArXiv, 2020.
+
+[5]. Mathilde Caron, et.al, &ldquo;[Unsupervised Learning of Visual Features by Contrasting Cluster Assignments](https://arxiv.org/abs/2006.09882), &rdquo; in Proc NeurIPS, 2020.
+
+[6]. Bo Pang, et.al, &ldquo;[Unsupervised Visual Representation Learning by Synchronous Momentum Grouping](https://arxiv.org/pdf/2006.07733.pdf), &rdquo; in Proc ECCV, 2022.
+
+```
+````
+
+````{admonition} **SysHeteroFL**
+In the paper system-heterogneous federated learning revisited through architecture search, it is proposed that assigning models of different architectures to the clients to achieve better performance when there are resource budgets on the clients. In this implementation, subnets of ResNet model with different architectures are sampled.
+
+```shell
+python3 ./examples/sysheterofl/sysheterofl.py -c examples/sysheterofl/config_ResNet152.yml
+```
+````
+
+````{admonition} **HeteroFL**
+HeteroFL is an algorithm aimed at solving heterogenous computing resources requirements on different federated learning clients. They use five different complexities to compress the channel width of the model. In the implementation, we need to modify the model to implement those five complexities and scale modules. We provide examples of ```ResNet``` family and ```MobileNetV3``` family here. The core operations of assigning different complexities to the clients and aggregate models of complexities are in function ```get_local_parameters``` and ```aggregation``` respectively, in ```heterofl_algorithm.py```.
+
+```shell
+python examples/heterofl/heterofl.py -c examples/heterofl/heterofl_resnet18_dynamic.yml
+```
+
+```{note}
+Diao et al., &ldquo;[HeteroFL: Computation and Communication Efficient Federated Learning for Heterogeneous Clients](https://openreview.net/forum?id=TNkPBBYFkXg),
+&rdquo; in International Conference on Learning Representations (ICLR), 2021.
+````
+
+````{admonition} **FedRolex**
+FedRolex argues the statistical method of pruning channels in HeteroFL will cause unbalanced updates of the model parameters. In this algorithm, they introduce a rolling mechanism to evenly update the parameters of each channel in the system-heterogenous federated learning. In this implementation, models of ResNet and ViT are supported.
+
+```shell
+python3 examples/fedrolex/fedrolex.py -c examples/fedrolex/example_ViT.yml
+```
+
+```{note}
+Alam et al., &ldquo;[FedRolex: Model-Heterogeneous Federated Learning with Rolling Sub-Model Extraction](https://openreview.net/forum?id=OtxyysUdBE),
+&rdquo; in Conference on Neural Information Processing Systems (NeurIPS), 2022.
+```
+````
+
+````{admonition} **AnyCostFL**
+AnyCostFL is an on-demand system-heterogeneous federated learning method to assign models of different architectures to meet the resource budgets of devices in federated learning. In this algorithm, it adopts the similar policy to assign models of different channel pruning rates as the HeteroFL. But they prune the channel on the basis of the magnitude of the $l_2$ norms of the channels. In this implementation, models of ResNet and ViT are supported.
+
+```shell
+python3 examples/anycostfl/anycostfl.py -c examples/anycostfl/example_ResNet.yml
+```
+
+```{note}
+Li et al., &ldquo;[AnycostFL: Efficient On-Demand Federated Learning over Heterogeneous Edge Device](https://arxiv.org/abs/2301.03062),
+&rdquo; in Proc. INFOCOM, 2022.
+```
+````
+
+````{admonition} **Polaris**
+Polaris is a client selection method for asynchronous federated learning. In this method, it selects clients via balancing between local device speed and local data quality from an optimization perspective. As it does not require extra information rather than local updates, Polaris is pluggable to any other federated aggregation methods.
+
+```shell
+python3 examples/polaris/polaris.py -c examples/polaris/polaris_LeNet5.yml
+```
+```{note}
+Kang et al., &ldquo;[POLARIS: Accelerating Asynchronous Federated Learning with Client Selection],
+&rdquo; 
+````
+
+
 With the recent redesign of the Plato API, the following list is outdated and will be updated as they are tested again.
 
-|  Method  | Notes | Tested  |
-| :------: | :---------- | :-----: |
-|[Adaptive Freezing](https://henryhxu.github.io/share/chen-icdcs21.pdf) | Change directory to `examples/adaptive_freezing` and run `python adaptive_freezing.py -c <configuration file>`. | Yes |
-|[Gradient-Instructed Frequency Tuning](https://github.com/TL-System/plato/blob/main/examples/adaptive_sync/papers/adaptive_sync.pdf) | Change directory to `examples/adaptive_sync` and run `python adaptive_sync.py -c <configuration file>`. | Yes |
-|[Attack Adaptive](https://arxiv.org/pdf/2102.05257.pdf)| Change directory to `examples/attack_adaptive` and run `python attack_adaptive.py -c <configuration file>`. | Yes |
-|Customizing clients and servers | This example shows how a custom client, server, and model can be built by using class inheritance in Python. Change directory to `examples/customized` and run `python custom_server.py` to run a standalone server (with no client processes launched), then run `python custom_client.py` to start a client that connects to a server running on `localhost`. To showcase how a custom model can be used, run `python custom_model.py`. | Yes |
-|Running Plato in Google Colab | This example shows how Google Colab can be used to run Plato in a terminal. Two Colab notebooks have been provided as examples, one for running Plato directly in a Colab notebook, and another for running Plato in a terminal (which is much more convenient). | Yes |
-|[MistNet](https://github.com/TL-System/plato/blob/main/docs/papers/MistNet.pdf) with separate client and server implementations | Change directory to `examples/dist_mistnet` and run `python custom_server.py -c ./mistnet_lenet5_server.yml`, then run `python custom_client.py -c ./mistnet_lenet5_client.yml -i 1`. | Yes |
-|[FedNova](https://proceedings.neurips.cc/paper/2020/hash/564127c03caab942e503ee6f810f54fd-Abstract.html) | Change directory to `examples/fednova` and run `python fednova.py -c <configuration file>`. | Yes |
-|[FedSarah](https://arxiv.org/pdf/1703.00102.pdf)                             | Change directory to `examples/fedsarah` and run `python fedsarah.py -c <configuration file>`. | Yes |
+|                                                                Method                                                                | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                     | Tested |
+|:------------------------------------------------------------------------------------------------------------------------------------:|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:------:|
+|                                [Adaptive Freezing](https://henryhxu.github.io/share/chen-icdcs21.pdf)                                | Change directory to `examples/adaptive_freezing` and run `python adaptive_freezing.py -c <configuration file>`.                                                                                                                                                                                                                                                                                                                           |  Yes   |
+| [Gradient-Instructed Frequency Tuning](https://github.com/TL-System/plato/blob/main/examples/adaptive_sync/papers/adaptive_sync.pdf) | Change directory to `examples/adaptive_sync` and run `python adaptive_sync.py -c <configuration file>`.                                                                                                                                                                                                                                                                                                                                   |  Yes   |
+|                                       [Attack Adaptive](https://arxiv.org/pdf/2102.05257.pdf)                                        | Change directory to `examples/attack_adaptive` and run `python attack_adaptive.py -c <configuration file>`.                                                                                                                                                                                                                                                                                                                               |  Yes   |
+|                                                   Customizing clients and servers                                                    | This example shows how a custom client, server, and model can be built by using class inheritance in Python. Change directory to `examples/customized` and run `python custom_server.py` to run a standalone server (with no client processes launched), then run `python custom_client.py` to start a client that connects to a server running on `localhost`. To showcase how a custom model can be used, run `python custom_model.py`. |  Yes   |
+|                                                    Running Plato in Google Colab                                                     | This example shows how Google Colab can be used to run Plato in a terminal. Two Colab notebooks have been provided as examples, one for running Plato directly in a Colab notebook, and another for running Plato in a terminal (which is much more convenient).                                                                                                                                                                          |  Yes   |
+|   [MistNet](https://github.com/TL-System/plato/blob/main/docs/papers/MistNet.pdf) with separate client and server implementations    | Change directory to `examples/dist_mistnet` and run `python custom_server.py -c ./mistnet_lenet5_server.yml`, then run `python custom_client.py -c ./mistnet_lenet5_client.yml -i 1`.                                                                                                                                                                                                                                                     |  Yes   |
+|               [FedNova](https://proceedings.neurips.cc/paper/2020/hash/564127c03caab942e503ee6f810f54fd-Abstract.html)               | Change directory to `examples/fednova` and run `python fednova.py -c <configuration file>`.                                                                                                                                                                                                                                                                                                                                               |  Yes   |
+|                                           [FedSarah](https://arxiv.org/pdf/1703.00102.pdf)                                           | Change directory to `examples/fedsarah` and run `python fedsarah.py -c <configuration file>`.                                                                                                                                                                                                                                                                                                                                             |  Yes   |

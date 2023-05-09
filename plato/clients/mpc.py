@@ -183,6 +183,7 @@ class Client(base.Client):
             ) * Config().trainer.epochs
 
         report = SimpleNamespace(
+            client_id=self.client_id,
             num_samples=self.sampler.num_samples(),
             accuracy=accuracy,
             training_time=training_time,
@@ -227,7 +228,6 @@ class Client(base.Client):
                 self.lock.release()
 
         self._report = self.customize_report(report)
-
         return self._report, weights
 
     async def _obtain_model_update(self, client_id, requested_time):
