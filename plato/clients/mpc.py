@@ -218,8 +218,12 @@ class Client(base.Client):
                 round_info_filename = "./mpc_data/round_info"
                 logging.debug("Retrieving round_info from file")
                 self.lock.acquire()
-                with open(round_info_filename, "rb") as round_info_file:
-                    round_info = pickle.load(round_info_file)
+                try:
+                    with open(round_info_filename, "rb") as round_info_file:
+                        round_info = pickle.load(round_info_file)
+                except FileNotFoundError:
+                    logging.info("round info file has not been created")
+                    round_info = None
 
             round_info[f"client_{self.client_id}_info"]["num_samples"] = self.sampler.num_samples()
 
