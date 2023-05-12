@@ -20,11 +20,18 @@ from kazoo.client import KazooClient
 from kazoo.recipe.lock import Lock
 import os
 
+
 class Client(base.Client):
     """A basic federated learning client who sends simple weight updates."""
 
     def __init__(
-        self, model=None, datasource=None, algorithm=None, trainer=None, callbacks=None, lock=None
+        self,
+        model=None,
+        datasource=None,
+        algorithm=None,
+        trainer=None,
+        callbacks=None,
+        lock=None,
     ):
         super().__init__(callbacks=callbacks)
         self.custom_model = model
@@ -75,14 +82,18 @@ class Client(base.Client):
         # additional data processing
 
         self.outbound_processor, self.inbound_processor = processor_registry.get(
-            "Client", client_id=self.client_id, trainer=self.trainer, file_lock=self.lock
+            "Client",
+            client_id=self.client_id,
+            trainer=self.trainer,
+            file_lock=self.lock,
         )
 
         if hasattr(Config().server, "s3_endpoint_url"):
             self.s3_client = s3.S3()
             # Use Zookeeper for distributed locking
-            self.zk = KazooClient(hosts = f'{Config().server.zk_address}:{Config().server.zk_port}')
-            
+            self.zk = KazooClient(
+                hosts=f"{Config().server.zk_address}:{Config().server.zk_port}"
+            )
 
     def _load_data(self) -> None:
         """Generates data and loads them onto this client."""
@@ -190,13 +201,13 @@ class Client(base.Client):
             comm_time=comm_time,
             update_response=False,
         )
-        
+
         # Save num_samples info in round_info
         try:
             if self.s3_client is not None:
                 # Use Zookeeper for distributed locking
                 self.zk.start()
-                lock = Lock(self.zk, '/my/lock/path')
+                lock = Lock(self.zk, "/my/lock/path")
                 lock.acquire()
                 logging.info("[%s] Acquired Zookeeper lock", self)
 
@@ -210,7 +221,7 @@ class Client(base.Client):
                 with open(round_info_filename, "rb") as round_info_file:
                     round_info = pickle.load(round_info_file)
 
-            round_info[f"client_{self.client_id}_info"]['num_samples'] = self.sampler.num_samples()
+            round_info[f"client_{self.client_id}_info"]["num_samples"] = self.sampler.num_samples()
 
             if self.s3_client is not None:
                 logging.debug("Saving round_info with current_client_info to S3")

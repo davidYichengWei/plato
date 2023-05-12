@@ -119,13 +119,12 @@ class Server(base.Server):
         if hasattr(Config().clients, "type") and Config().clients.type == "mpc":
             if "mpc_data" not in os.listdir("./"):
                 os.mkdir("mpc_data")
-            # erase the file before we start training 
+            # erase the file before we start training
             temp = open("./mpc_data/round_info", "wb")
             temp.close()
 
         if hasattr(Config().server, "s3_endpoint_url"):
             self.s3_client = s3.S3()
-    
 
     def init_trainer(self) -> None:
         """Setting up the global model, trainer, and algorithm."""
@@ -170,7 +169,8 @@ class Server(base.Server):
         """Process the client reports by aggregating their weights."""
         self.total_samples = sum(update.report.num_samples for update in updates)
 
-        aggregated_weights = weights_received[0] # initialize with the first client's weights
+        # initialize with the first client's weights
+        aggregated_weights = weights_received[0]
 
         # Aggregate weights
         for i, client_weights in enumerate(weights_received):
@@ -185,7 +185,6 @@ class Server(base.Server):
             aggregated_weights[key] /= self.total_samples
 
         return aggregated_weights
-            
 
     async def _process_reports(self):
         """Process the client reports by aggregating their weights."""
@@ -305,19 +304,23 @@ class Server(base.Server):
                 round_info = pickle.load(round_info_file)
 
         # If there is only 1 client per round, skip the following step
-        if len(round_info['selected_clients']) == 1:
+        if len(round_info["selected_clients"]) == 1:
             return weights_received
 
         # Combine the client's weights share with weights shares sent from other clients
-        for i, client in enumerate(round_info['selected_clients']):
+        for i, client in enumerate(round_info["selected_clients"]):
             for key in weights_received[i].keys():
-                weights_received[i][key] += round_info[f"client_{client}_info"]["data"][key]
+                weights_received[i][key] += round_info[f"client_{client}_info"]["data"][
+                    key
+                ]
 
         # Store the combined weights in files for testing
-        for i, client in enumerate(round_info['selected_clients']):
-            encrypted_weights_filename = "mpc_data/encrypted_weights_round%s_client%s" % (round_info['round_number'], client)
-            with open(encrypted_weights_filename, 'w') as file:
-                #pickle.dump(weights_received[i], file)
+        for i, client in enumerate(round_info["selected_clients"]):
+            encrypted_weights_filename = (
+                "mpc_data/encrypted_weights_round%s_client%s"
+                % (round_info["round_number"], client)
+            )
+            with open(encrypted_weights_filename, "w") as file:
                 file.write(str(weights_received[i]))
 
         return weights_received
@@ -326,7 +329,7 @@ class Server(base.Server):
         """
         Method called after the updated weights have been aggregated.
         """
-    
+
     def choose_clients(self, clients_pool, clients_count):
         """Chooses a subset of the clients to participate in each round."""
         assert clients_count <= len(clients_pool)
@@ -337,26 +340,27 @@ class Server(base.Server):
 
         round_info = {
             "round_number": self.current_round,
-            "selected_clients": selected_clients
+            "selected_clients": selected_clients,
         }
 
         for client in selected_clients:
-            round_info[f"client_{client}_info"] = {
-                "num_samples": None,
-                "data": None
-            }
+            round_info[f"client_{client}_info"] = {"num_samples": None, "data": None}
 
         # Store selected clients info into a file or S3 bucket
         if self.s3_client is not None:
             s3_key = "round_info"
             self.s3_client.put_to_s3(s3_key, round_info)
-            logging.debug("[%s] Stored information for the current round in an S3 bucket", self)
+            logging.debug(
+                "[%s] Stored information for the current round in an S3 bucket", self
+            )
         else:
             round_info_filename = "mpc_data/round_info"
             with open(round_info_filename, "wb") as round_info_file:
                 pickle.dump(round_info, round_info_file)
-            logging.debug("[%s] Stored information for the current round in file mpc_data/round_info", self)
-
+            logging.debug(
+                "[%s] Stored information for the current round in file mpc_data/round_info",
+                self,
+            )
 
         self.prng_state = random.getstate()
         logging.info("[%s] Selected clients: %s", self, selected_clients)

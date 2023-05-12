@@ -25,7 +25,7 @@ Valid values are `true` or `false`. The default value is `false`.
 ## clients
 
 ```{admonition} **type**
-The type of the federated learning client. Valid values include `simple`, which represents a basic client who sends weight updates to the server; and `mistnet`, which is client following the MistNet algorithm;
+The type of the federated learning client. Valid values include `simple`, which represents a basic client who sends weight updates to the server; `mistnet`, which is client following the MistNet algorithm; and `mpc`, which is client that uses secure multi-party computation to encrypt model parameters.
 ```
 
 ```{admonition} **total_clients**
@@ -125,6 +125,10 @@ A list of processors for the client to apply on the payload before sending it ou
 - `model_compress` Compress model parameters with `Zstandard` compression algorithm. Must be placed as the last processor if applied.
 
 - `model_encrypt` Encrypts the model parameters using homomorphic encyrption.
+
+- `mpc_model_encrypt` Encrypts the model parameters using additive secret sharing multi-party computation algorithm.
+
+- `mpc_model_encrypt_sharmir` Encrypts the model parameters using Shamir secret sharing multi-party computation algorithm.
 ```
 
 ```{admonition} inbound_processors
@@ -156,6 +160,10 @@ The type of the server.
 
 - `fedavg_he` a Federated Averaging server that handles model updates after homomorphic encryption. When this server is used, the clients need to enable inbound processor `model_decrypt` to decrypt the global model from server, and outbound processor `model_encrypt` to encrypt the model updates.
 
+- `fedavg_mpc` a Federated Averaging server that handles model updates after encryption using additive secret sharing multi-party computation algorithm. When this server is used, the clients need to enable outbound processor `mpc_model_encrypt` to encrypt the model updates.
+
+- `fedavg_mpc_shamir` a Federated Averaging server that handles model updates after encryption using Shamir secret sharing multi-party computation algorithm. When this server is used, the clients need to enable outbound processor `mpc_model_encrypt_shamir` to encrypt the model updates.
+
 - `fedavg_personalized` a Federated Averaging server that supports all-purpose personalized federated learning by controlling when and which group of clients are to perform local personalization.
 
 ```
@@ -178,6 +186,14 @@ The endpoint URL for an S3-compatible storage service, used for transferring pay
 
 ```{admonition} s3_bucket
 The bucket name for an S3-compatible storage service, used for transferring payloads between clients and servers.
+```
+
+```{admonition} zk_address
+The IP address for Zookeeper service, used as a distributed lock in secure multi-party computation.
+```
+
+```{admonition} zk_port
+The port for Zookeeper service, used as a distributed lock in secure multi-party computation.
 ```
 
 ```{admonition} random_seed

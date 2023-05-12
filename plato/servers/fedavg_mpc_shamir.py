@@ -21,10 +21,12 @@ from plato.trainers import registry as trainers_registry
 from plato.utils import csv_processor, fonts
 from plato.utils import s3
 
+
 class fraction:
     """Used in computation of Lagrange terms in decryption of Shamir tensors"""
-    num = 0 #numerator
-    den = 0 #denominator
+
+    num = 0  # numerator
+    den = 0  # denominator
 
     def __init__(self, num, den):
         self.num = num
@@ -46,9 +48,12 @@ class fraction:
 
     def add(self, frac):
         """Add two fractions"""
-        temp_frac = fraction(self.num * frac.den + self.den * frac.num, self.den * frac.den)
+        temp_frac = fraction(
+            self.num * frac.den + self.den * frac.num, self.den * frac.den
+        )
         temp_frac.reduce_frac()
         return temp_frac
+
 
 class Server(base.Server):
     """Federated learning server using federated averaging."""
@@ -146,11 +151,11 @@ class Server(base.Server):
             csv_processor.initialize_csv(
                 accuracy_csv_file, accuracy_headers, Config().params["result_path"]
             )
-        
+
         if hasattr(Config().clients, "type") and Config().clients.type == "mpc":
             if "mpc_data" not in os.listdir("./"):
                 os.mkdir("mpc_data")
-            # erase the file before we start training 
+            # erase the file before we start training
             temp = open("./mpc_data/round_info", "wb")
             temp.close()
 
@@ -200,7 +205,8 @@ class Server(base.Server):
         """Process the client reports by aggregating their weights."""
         self.total_samples = sum(update.report.num_samples for update in updates)
 
-        aggregated_weights = weights_received[0] # initialize with the first client's weights
+        # initialize with the first client's weights
+        aggregated_weights = weights_received[0]
 
         # Aggregate weights
         for i, client_weights in enumerate(weights_received):
@@ -215,7 +221,6 @@ class Server(base.Server):
             aggregated_weights[key] /= self.total_samples
 
         return aggregated_weights
-            
 
     async def _process_reports(self):
         """Process the client reports by aggregating their weights."""
@@ -319,7 +324,6 @@ class Server(base.Server):
 
         return accuracy
 
-
     def recover_secret(self, x, y, M):
         """
         recover the secret from the given points
@@ -330,9 +334,9 @@ class Server(base.Server):
         for i in range(0, M):
             l = fraction(y[i], 1)
             for j in range(0, M):
-                #compute the lagrange terms
+                # compute the lagrange terms
                 if i != j:
-                    temp = fraction(0-x[j], x[i]-x[j])
+                    temp = fraction(0 - x[j], x[i] - x[j])
                     l = l.mult(temp)
             ans = ans.add(l)
 
@@ -341,9 +345,9 @@ class Server(base.Server):
     def decrypt_tensor(self, tensors, M=None):
         """Iteratively decrypt a tensor by calling recover_secret"""
         tensor_size = list(tensors.size())
-        N = tensor_size[0] #number of participating clients
-        if M is None: #number of points used in decryption
-            M = max(N-2, 1)
+        N = tensor_size[0]  # number of participating clients
+        if M is None:  # number of points used in decryption
+            M = max(N - 2, 1)
 
         num_weights = int(math.prod(tensor_size) / (N * 2))
         coords_shape = [N, num_weights, 2]
@@ -352,7 +356,7 @@ class Server(base.Server):
         secret_arr = torch.zeros([num_weights])
         for i in range(num_weights):
             list_points = torch.zeros([N, 2])
-            #picking the first M points from the N points received (can pick randomly)
+            # picking the first M points from the N points received (can pick randomly)
             for j in range(N):
                 list_points[j] = coords[j][i]
 
@@ -362,7 +366,7 @@ class Server(base.Server):
                 x[j] = list_points[j][0]
                 y[j] = list_points[j][1]
 
-            #get the first M non-repeating x values
+            # get the first M non-repeating x values
             freq_dict = {}
             result_x = np.zeros(M)
             result_y = np.zeros(M)
@@ -382,7 +386,6 @@ class Server(base.Server):
         tensor_size.pop(-1)
         return secret_arr.view(tensor_size)
 
-
     def weights_received(self, weights_received):
         """
         Method called after the updated weights have been received.
@@ -398,33 +401,31 @@ class Server(base.Server):
             with open(round_info_filename, "rb") as round_info_file:
                 round_info = pickle.load(round_info_file)
 
-        # Store the combined weights in files for testing
-        # for i, client in enumerate(round_info['selected_clients']):
-        #     encrypted_weights_filename = "mpc_data/encrypted_weights_round%s_client%s" % (round_info['round_number'], client)
-        #     with open(encrypted_weights_filename, 'w') as file:
-        #         #pickle.dump(weights_received[i], file)
-        #         file.write(str(weights_received[i]))
-
         # If there is only 1 client per round, skip the following step
-        if len(round_info['selected_clients']) == 1:
+        if len(round_info["selected_clients"]) == 1:
             return weights_received
 
         # Combine the client's weights share with weights shares sent from other clients
-        for i, from_client in enumerate(round_info['selected_clients']):
-            encrypted_weights_filename = "mpc_data/encrypted_weights_round%s_client%s" % (round_info['round_number'], from_client)
-            file = open(encrypted_weights_filename, 'w')
+        for i, from_client in enumerate(round_info["selected_clients"]):
+            encrypted_weights_filename = (
+                "mpc_data/encrypted_weights_round%s_client%s"
+                % (round_info["round_number"], from_client)
+            )
+            file = open(encrypted_weights_filename, "w")
 
             for key in weights_received[i].keys():
-                tensor_size =  list(weights_received[i][key].size())
-                tensor_size.insert(0, len(round_info['selected_clients']))
+                tensor_size = list(weights_received[i][key].size())
+                tensor_size.insert(0, len(round_info["selected_clients"]))
                 cur_val = torch.zeros(tensor_size)
                 cur_val[0] = weights_received[i][key]
                 insert_idx = 1
 
-                for j, to_client in enumerate(round_info['selected_clients']):
+                for j, to_client in enumerate(round_info["selected_clients"]):
                     if j == i:
                         continue
-                    cur_val[insert_idx] = round_info[f"client_{to_client}_{from_client}_info"]["data"][key]
+                    cur_val[insert_idx] = round_info[
+                        f"client_{to_client}_{from_client}_info"
+                    ]["data"][key]
                     insert_idx = insert_idx + 1
                 file.write(key)
                 file.write(str(cur_val))
@@ -448,29 +449,29 @@ class Server(base.Server):
 
         round_info = {
             "round_number": self.current_round,
-            "selected_clients": selected_clients
+            "selected_clients": selected_clients,
         }
 
         for client_to in selected_clients:
-            round_info[f"client_{client_to}_info"]  = {
-                "num_samples": None
-            }
+            round_info[f"client_{client_to}_info"] = {"num_samples": None}
             for client_from in selected_clients:
-                round_info[f"client_{client_to}_{client_from}_info"] = {  
-                    "data": None
-                }
+                round_info[f"client_{client_to}_{client_from}_info"] = {"data": None}
 
         # Store selected clients info into a file or S3 bucket
         if self.s3_client is not None:
             s3_key = "round_info"
             self.s3_client.put_to_s3(s3_key, round_info)
-            logging.debug("[%s] Stored information for the current round in an S3 bucket", self)
+            logging.debug(
+                "[%s] Stored information for the current round in an S3 bucket", self
+            )
         else:
             round_info_filename = "mpc_data/round_info"
             with open(round_info_filename, "wb") as round_info_file:
                 pickle.dump(round_info, round_info_file)
-            logging.debug("[%s] Stored information for the current round in file mpc_data/round_info", self)
-
+            logging.debug(
+                "[%s] Stored information for the current round in file mpc_data/round_info",
+                self,
+            )
 
         self.prng_state = random.getstate()
         logging.info("[%s] Selected clients: %s", self, selected_clients)

@@ -15,6 +15,7 @@ from kazoo.client import KazooClient
 from kazoo.recipe.lock import Lock
 import copy
 
+
 class Processor(model.Processor):
     """
     A processor that decrypts model tensors
@@ -50,9 +51,11 @@ class Processor(model.Processor):
     def process(self, data: Any) -> Any:
         # Load round_info object
         if hasattr(Config().server, "s3_endpoint_url"):
-            self.zk = KazooClient(hosts = f'{Config().server.zk_address}:{Config().server.zk_port}')
+            self.zk = KazooClient(
+                hosts=f"{Config().server.zk_address}:{Config().server.zk_port}"
+            )
             self.zk.start()
-            lock = Lock(self.zk, '/my/lock/path')
+            lock = Lock(self.zk, "/my/lock/path")
             lock.acquire()
             logging.info("[%s] Acquired Zookeeper lock", self)
 
@@ -66,14 +69,13 @@ class Processor(model.Processor):
             with open(round_info_filename, "rb") as round_info_file:
                 round_info = pickle.load(round_info_file)
 
-        num_clients = len(round_info['selected_clients'])
+        num_clients = len(round_info["selected_clients"])
 
         # Store the client's weights before encryption in a file for testing
-        # weights_filename = "mpc_data/raw_weights_round%s_client%s" % (round_info['round_number'], self.client_id)
-        # with open(weights_filename, "wb") as weights_file:
-        #     pickle.dump(data, weights_file)
-        weights_filename = f"mpc_data/raw_weights_round{round_info['round_number']}"\
-             f"_client{self.client_id}"
+        weights_filename = (
+            f"mpc_data/raw_weights_round{round_info['round_number']}"
+            f"_client{self.client_id}"
+        )
         file = open(weights_filename, "w", encoding="utf8")
         file.write(str(data))
         file.close()
@@ -85,7 +87,7 @@ class Processor(model.Processor):
         # Iterate over the keys of data to split
         for key in data.keys():
             # multiply by num_samples used to train the client
-            data[key] *= round_info[f"client_{self.client_id}_info"]['num_samples']
+            data[key] *= round_info[f"client_{self.client_id}_info"]["num_samples"]
 
             # Split tensor randomly into num_clients shares
             tensor_shares = self.splitTensor(data[key], num_clients, 5)
@@ -94,15 +96,15 @@ class Processor(model.Processor):
             for i in range(num_clients):
                 data_shares[i][key] = tensor_shares[i]
 
-
         # Store secret shares in round_info
-        for i, client_id in enumerate(round_info['selected_clients']):
+        for i, client_id in enumerate(round_info["selected_clients"]):
             # Skip the client itself
             if client_id == self.client_id:
-                self.client_share_index = i # keep track of the index to return the client's share in the end
+                # keep track of the index to return the client's share in the end
+                self.client_share_index = i
                 continue
 
-            if round_info[f"client_{client_id}_info"]["data"] == None:
+            if round_info[f"client_{client_id}_info"]["data"] is None:
                 round_info[f"client_{client_id}_info"]["data"] = data_shares[i]
             else:
                 for key in data.keys():

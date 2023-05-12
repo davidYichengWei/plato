@@ -16,6 +16,7 @@ from plato.processors import model
 from plato.config import Config
 from plato.utils import s3
 
+
 class Processor(model.Processor):
     """
     A processor that decrypts model tensors
@@ -29,7 +30,7 @@ class Processor(model.Processor):
         self.zk = None
         self.lock = kwargs["file_lock"]
 
-    def calculate_y (self, x, poly):
+    def calculate_y(self, x, poly):
         """
         compute y value for a given x value
         e.g. y = poly[0] + x*poly[1] + x^2*poly[2]
@@ -38,7 +39,7 @@ class Processor(model.Processor):
         tmp = 1
 
         for coeff in poly:
-            y = (y + coeff * tmp)
+            y = y + coeff * tmp
             tmp = tmp * x
         return y
 
@@ -47,20 +48,22 @@ class Processor(model.Processor):
         Function to encode a given secret, given by S
         Generates a K-degree polynomial, and N points
         """
-        S = round(S.item()*1000000)
+        S = round(
+            S.item() * 1000000
+        )  # convert float to integer to allow for fraction reduction
         poly = torch.zeros(K)
-        poly[0] = S #the y-intercept
+        poly[0] = S  # the y-intercept
         for i in range(1, K):
             val = randint(1, 999)
-            while val in poly: #avoid having duplicate x values
+            while val in poly:  # avoid having duplicate x values
                 val = randint(1, 999)
             poly[i] = val
         points = torch.zeros([N, 2])
 
-        #Generate N points from the polynomial
-        for j in range(1, N+1):
-            points[j-1][0] = j #x value of point
-            points[j-1][1] = self.calculate_y(j, poly) #y value of point
+        # Generate N points from the polynomial
+        for j in range(1, N + 1):
+            points[j - 1][0] = j  # x value of point
+            points[j - 1][1] = self.calculate_y(j, poly)  # y value of point
 
         return points
 
@@ -70,33 +73,36 @@ class Processor(model.Processor):
             return secret_data.unsqueeze(0)
 
         if K is None:
-            K = max(N-2, 1) #threshold chosen by the user
+            K = max(N - 2, 1)  # threshold chosen by the user
 
         orig_size = list(secret_data.size())
-        dimen_len = math.prod(orig_size) #number of entries
+        dimen_len = math.prod(orig_size)  # number of entries
         arr_one_dimen = secret_data.view(dimen_len)
 
-        coords_size = [N, dimen_len, 2] #num clients, num points, 2-D point
+        coords_size = [N, dimen_len, 2]  # num clients, num points, 2-D point
         coords = torch.empty(coords_size)
 
-        for i in range(dimen_len): #iterate through each weight value
-            points = self.secret_sharing(arr_one_dimen[i], N, K) #size [N, 2] tensor
+        for i in range(dimen_len):  # iterate through each weight value
+            points = self.secret_sharing(arr_one_dimen[i], N, K)  # size [N, 2] tensor
             for j in range(N):
-                coords[j][i] = points[j] #coordinates[j] is the data points sending to client j
+                # coordinates[j] is the data points sending to client j
+                coords[j][i] = points[j]
 
         encrypted_size = orig_size
         encrypted_size.insert(0, N)
-        encrypted_size.append(2) # using 2-D points
+        encrypted_size.append(2)  # using 2-D points
         encrypted = coords.view(encrypted_size)
 
-        return encrypted #size [N, (orig_size), 2]
+        return encrypted  # size [N, (orig_size), 2]
 
     def process(self, data: Any) -> Any:
         """Load round_info object"""
         if hasattr(Config().server, "s3_endpoint_url"):
-            self.zk = KazooClient(hosts = f'{Config().server.zk_address}:{Config().server.zk_port}')
+            self.zk = KazooClient(
+                hosts=f"{Config().server.zk_address}:{Config().server.zk_port}"
+            )
             self.zk.start()
-            lock = Lock(self.zk, '/my/lock/path')
+            lock = Lock(self.zk, "/my/lock/path")
             lock.acquire()
             logging.info("[%s] Acquired Zookeeper lock", self)
 
@@ -110,15 +116,13 @@ class Processor(model.Processor):
             with open(round_info_filename, "rb") as round_info_file:
                 round_info = pickle.load(round_info_file)
 
-        num_clients = len(round_info['selected_clients'])
+        num_clients = len(round_info["selected_clients"])
 
         # Store the client's weights before encryption in a file for testing
-        # weights_filename = "mpc_data/raw_weights_round%s_client%s" % (round_info['round_number'], self.client_id)
-        # with open(weights_filename, "wb") as weights_file:
-        #     pickle.dump(data, weights_file)
-
-        weights_filename = f"mpc_data/raw_weights_round{round_info['round_number']}"\
-             f"_client{self.client_id}"
+        weights_filename = (
+            f"mpc_data/raw_weights_round{round_info['round_number']}"
+            f"_client{self.client_id}"
+        )
         file = open(weights_filename, "w", encoding="utf8")
         file.write(str(data))
         file.close()
@@ -130,7 +134,7 @@ class Processor(model.Processor):
         # Iterate over the keys of data to split
         for key in data.keys():
             # multiply by num_samples used to train the client
-            data[key] *= round_info[f"client_{self.client_id}_info"]['num_samples']
+            data[key] *= round_info[f"client_{self.client_id}_info"]["num_samples"]
 
             tensor_shares = self.split_tensor(data[key], num_clients)
 
@@ -139,7 +143,7 @@ class Processor(model.Processor):
                 data_shares[i][key] = tensor_shares[i]
 
         # Store secret shares in round_info
-        for i, client_id in enumerate(round_info['selected_clients']):
+        for i, client_id in enumerate(round_info["selected_clients"]):
             # Skip the client itself
             if client_id == self.client_id:
                 # keep track of the index to return the client's share in the end
